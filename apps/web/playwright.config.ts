@@ -1,0 +1,2 @@
+import { defineConfig, devices } from '@playwright/test';
+export default defineConfig({testDir:'e2e',testMatch:'novo-front.spec.ts',timeout:90000,workers:1,reporter:'list',use:{baseURL:process.env.BAR_E2E_URL||'http://127.0.0.1:18080',actionTimeout:15000,trace:'off',screenshot:'only-on-failure'},projects:[{name:'computador',use:{...devices['Desktop Chrome']}},{name:'celular',use:{...devices['Pixel 7']}}]});

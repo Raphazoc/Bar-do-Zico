@@ -1,0 +1,43 @@
+name: gestao-bar
+
+services:
+  db:
+    image: postgres:17.11
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gestao_bar}
+      POSTGRES_USER: ${POSTGRES_USER:-bar_migrator}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}
+      TZ: UTC
+      PGTZ: UTC
+    command: [postgres, -c, timezone=UTC]
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    image: redgate/flyway:13.10.3
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      FLYWAY_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-gestao_bar}
+      FLYWAY_USER: ${POSTGRES_USER:-bar_migrator}
+      FLYWAY_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}
+      FLYWAY_SCHEMAS: bar
+      FLYWAY_DEFAULT_SCHEMA: bar
+      FLYWAY_LOCATIONS: filesystem:/flyway/sql
+      FLYWAY_CLEAN_DISABLED: "true"
+      FLYWAY_VALIDATE_MIGRATION_NAMING: "true"
+      FLYWAY_CONNECT_RETRIES: "30"
+    volumes:
+      - ./apps/api/src/main/resources/db/migration:/flyway/sql:ro
+    command: migrate
+
+volumes:
+  postgres_data:

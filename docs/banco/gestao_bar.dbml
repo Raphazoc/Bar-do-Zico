@@ -1,0 +1,618 @@
+// Gerado do PostgreSQL por scripts/export_dbml.py. Não substitui as migrações.
+// Índices parciais têm o predicado em note; UNIQUE só vale quando o predicado é verdadeiro.
+Project gestao_bar {
+  database_type: 'PostgreSQL'
+  Note: 'MVP: 33 tabelas de negócio/referência e 2 de infraestrutura da API. Checks, triggers, views e condições de índices estão nas migrações SQL.'
+}
+
+Table bar.account_adjustments {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  account_id uuid [not null]
+  order_item_id uuid
+  actor_id uuid [not null]
+  authorized_by uuid
+  reverses_id uuid
+  kind varchar(25) [not null]
+  amount numeric(14,2) [not null]
+  rate numeric(7,4)
+  base_amount numeric(14,2)
+  reason text [not null]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  indexes {
+    (establishment_id, id) [name: 'account_adjustments_establishment_id_id_key', unique]
+    (establishment_id, reverses_id) [name: 'account_adjustments_establishment_id_reverses_id_key', unique]
+    (establishment_id, actor_id) [name: 'ix_fk_1bd65fdd90560518085c']
+    (establishment_id, authorized_by) [name: 'ix_fk_b0ba8bdff5805e6abeda']
+    (establishment_id, account_id) [name: 'ix_fk_dfbe8d404069aeb60583']
+    (establishment_id, order_item_id) [name: 'ix_fk_eb62d3a341ce699b5adb']
+  }
+}
+
+Table bar.accounts {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  table_id uuid
+  opened_by uuid [not null]
+  status varchar(25) [not null, default: `'ABERTA'::character varying`]
+  opened_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  closed_at timestamptz
+  version bigint [not null, default: `0`]
+  indexes {
+    (establishment_id, id) [name: 'accounts_establishment_id_id_key', unique]
+    (establishment_id, opened_at) [name: 'ix_accounts_open', note: 'Parcial: ((status)::text = ANY ((ARRAY[\'ABERTA\'::character varying, \'EM_FECHAMENTO\'::character varying])::text[]))']
+    (establishment_id, opened_by) [name: 'ix_fk_22ca650a5b85b67caab3']
+    (establishment_id, table_id) [name: 'ix_fk_6990e40b9c2ddeb79cdd']
+    (establishment_id, table_id) [name: 'uq_accounts_active_table', note: 'UNIQUE parcial: ((table_id IS NOT NULL) AND ((status)::text = ANY ((ARRAY[\'ABERTA\'::character varying, \'EM_FECHAMENTO\'::character varying])::text[])))']
+  }
+}
+
+Table bar.app_sessions {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  user_id uuid [not null]
+  token_hash varchar(64) [not null]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  expires_at timestamptz [not null]
+  revoked_at timestamptz
+  indexes {
+    (establishment_id, id) [name: 'app_sessions_establishment_id_id_key', unique]
+    (token_hash) [name: 'app_sessions_token_hash_key', unique]
+    (establishment_id, user_id) [name: 'ix_app_sessions_user']
+  }
+}
+
+Table bar.areas {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  name varchar(80) [not null]
+  active boolean [not null, default: `true`]
+  indexes {
+    (establishment_id, id) [name: 'areas_establishment_id_id_key', unique]
+    (establishment_id, name) [name: 'areas_establishment_id_name_key', unique]
+  }
+}
+
+Table bar.audit_events {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  actor_id uuid
+  action varchar(100) [not null]
+  resource_type varchar(80) [not null]
+  resource_id uuid [not null]
+  reason text
+  changes jsonb [not null, default: `'{}'::jsonb`]
+  correlation_id varchar(100) [not null]
+  occurred_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  indexes {
+    (establishment_id, id) [name: 'audit_events_establishment_id_id_key', unique]
+    (establishment_id, occurred_at) [name: 'ix_audit_events_timeline']
+    (establishment_id, actor_id) [name: 'ix_fk_6a633026a0bb87c701fb']
+  }
+}
+
+Table bar.bar_tables {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  area_id uuid [not null]
+  number varchar(20) [not null]
+  status varchar(30) [not null, default: `'LIVRE'::character varying`]
+  version bigint [not null, default: `0`]
+  indexes {
+    (establishment_id, id) [name: 'bar_tables_establishment_id_id_key', unique]
+    (establishment_id, number) [name: 'bar_tables_establishment_id_number_key', unique]
+    (establishment_id, area_id) [name: 'ix_fk_2a3b5cff953e993135db']
+  }
+}
+
+Table bar.cash_closure_lines {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  closure_id uuid [not null]
+  method varchar(15) [not null]
+  expected_amount numeric(14,2) [not null]
+  counted_amount numeric(14,2) [not null]
+  difference_amount numeric(14,2) [default: `(counted_amount - expected_amount)`]
+  indexes {
+    (establishment_id, closure_id, method) [name: 'cash_closure_lines_establishment_id_closure_id_method_key', unique]
+    (establishment_id, id) [name: 'cash_closure_lines_establishment_id_id_key', unique]
+  }
+}
+
+Table bar.cash_closures {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  cash_session_id uuid [not null]
+  closed_by uuid [not null]
+  corrects_id uuid
+  reason text
+  closed_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  indexes {
+    (establishment_id, corrects_id) [name: 'cash_closures_establishment_id_corrects_id_key', unique]
+    (establishment_id, id) [name: 'cash_closures_establishment_id_id_key', unique]
+    (establishment_id, cash_session_id) [name: 'ix_fk_b9fe120df68adcf12976']
+    (establishment_id, closed_by) [name: 'ix_fk_cf9ca5a71daaac32a3dd']
+    (establishment_id, cash_session_id) [name: 'uq_cash_closures_original', note: 'UNIQUE parcial: (corrects_id IS NULL)']
+  }
+}
+
+Table bar.cash_movements {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  cash_session_id uuid [not null]
+  operator_id uuid [not null]
+  authorized_by uuid
+  kind varchar(20) [not null]
+  amount numeric(14,2) [not null]
+  reason text [not null]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  indexes {
+    (establishment_id, id) [name: 'cash_movements_establishment_id_id_key', unique]
+    (establishment_id, cash_session_id) [name: 'ix_fk_231f8ab8d01b7bdb9b6a']
+    (establishment_id, authorized_by) [name: 'ix_fk_be4bd684ff46d6c7524b']
+    (establishment_id, operator_id) [name: 'ix_fk_e4b943d64a52a4ad5a10']
+  }
+}
+
+Table bar.cash_sessions {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  terminal_id uuid [not null]
+  operator_id uuid [not null]
+  opening_amount numeric(14,2) [not null]
+  opened_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  closed_at timestamptz
+  status varchar(20) [not null, default: `'ABERTA'::character varying`]
+  version bigint [not null, default: `0`]
+  indexes {
+    (establishment_id, id) [name: 'cash_sessions_establishment_id_id_key', unique]
+    (establishment_id, terminal_id) [name: 'ix_fk_24afccb9d97bc30859ad']
+    (establishment_id, operator_id) [name: 'ix_fk_b3fa24dd9d60d8812d92']
+    (establishment_id, terminal_id) [name: 'uq_cash_sessions_open_terminal', note: 'UNIQUE parcial: ((status)::text = \'ABERTA\'::text)']
+  }
+}
+
+Table bar.cash_terminals {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  name varchar(100) [not null]
+  active boolean [not null, default: `true`]
+  indexes {
+    (establishment_id, id) [name: 'cash_terminals_establishment_id_id_key', unique]
+    (establishment_id, name) [name: 'cash_terminals_establishment_id_name_key', unique]
+  }
+}
+
+Table bar.categories {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  name varchar(100) [not null]
+  active boolean [not null, default: `true`]
+  sort_order integer [not null, default: `0`]
+  indexes {
+    (establishment_id, id) [name: 'categories_establishment_id_id_key', unique]
+    (establishment_id, name) [name: 'categories_establishment_id_name_key', unique]
+  }
+}
+
+Table bar.device_sessions {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  device_id uuid [not null]
+  user_id uuid [not null]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  last_seen_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  expires_at timestamptz [not null]
+  revoked_at timestamptz
+  indexes {
+    (establishment_id, id) [name: 'device_sessions_establishment_id_id_key', unique]
+    (establishment_id, last_seen_at) [name: 'ix_device_sessions_presence', note: 'Parcial: (revoked_at IS NULL)']
+    (establishment_id, device_id) [name: 'ix_fk_963ef0b5003adebb2839']
+    (establishment_id, user_id) [name: 'ix_fk_ec4557ed0dc894e0f5a4']
+  }
+}
+
+Table bar.devices {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  label varchar(120) [not null]
+  blocked_at timestamptz
+  blocked_by uuid
+  app_version varchar(40) [not null]
+  indexes {
+    (establishment_id, id) [name: 'devices_establishment_id_id_key', unique]
+    (establishment_id, blocked_by) [name: 'ix_fk_fd836e83669837118c2c']
+  }
+}
+
+Table bar.establishments {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  name varchar(150) [not null]
+  timezone varchar(60) [not null, default: `'America/Sao_Paulo'::character varying`]
+  service_rate numeric(7,4) [not null, default: `0`]
+  service_enabled boolean [not null, default: `false`]
+  settings jsonb [not null, default: `'{}'::jsonb`]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table bar.idempotency_records {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  user_id uuid [not null]
+  operation varchar(80) [not null]
+  key varchar(150) [not null]
+  request_hash varchar(128) [not null]
+  status varchar(20) [not null, default: `'PROCESSANDO'::character varying`]
+  response_code integer
+  response_body jsonb
+  resource_type varchar(80)
+  resource_id uuid
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  expires_at timestamptz
+  indexes {
+    (establishment_id, id) [name: 'idempotency_records_establishment_id_id_key', unique]
+    (establishment_id, user_id, operation, key) [name: 'idempotency_records_establishment_id_user_id_operation_key_key', unique]
+  }
+}
+
+Table bar.login_attempts {
+  key_hash varchar(64) [pk, not null]
+  attempts integer [not null, default: `0`]
+  window_started_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table bar.modifier_groups {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  name varchar(100) [not null]
+  min_choices integer [not null, default: `0`]
+  max_choices integer [not null]
+  indexes {
+    (establishment_id, id) [name: 'modifier_groups_establishment_id_id_key', unique]
+  }
+}
+
+Table bar.modifiers {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  group_id uuid [not null]
+  name varchar(100) [not null]
+  price numeric(14,2) [not null]
+  active boolean [not null, default: `true`]
+  indexes {
+    (establishment_id, group_id) [name: 'ix_fk_ca724d6a543f5ec7a834']
+    (establishment_id, id) [name: 'modifiers_establishment_id_id_key', unique]
+  }
+}
+
+Table bar.order_item_modifiers {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  order_item_id uuid [not null]
+  modifier_id uuid [not null]
+  description_snapshot text [not null]
+  unit_price numeric(14,2) [not null]
+  quantity numeric(14,3) [not null, default: `1`]
+  indexes {
+    (establishment_id, modifier_id) [name: 'ix_fk_bedcaa9ec24a236de7a5']
+    (establishment_id, id) [name: 'order_item_modifiers_establishment_id_id_key', unique]
+    (establishment_id, order_item_id, modifier_id) [name: 'order_item_modifiers_establishment_id_order_item_id_modifie_key', unique]
+  }
+}
+
+Table bar.order_items {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  order_id uuid [not null]
+  product_id uuid [not null]
+  description_snapshot text [not null]
+  unit_price numeric(14,2) [not null]
+  quantity numeric(14,3) [not null]
+  destination varchar(20) [not null]
+  status varchar(25) [not null, default: `'ENVIADO'::character varying`]
+  tax_rules_snapshot jsonb [not null, default: `'{}'::jsonb`]
+  notes text
+  version bigint [not null, default: `0`]
+  indexes {
+    (establishment_id, order_id) [name: 'ix_fk_329417d1b0165de7d532']
+    (establishment_id, product_id) [name: 'ix_fk_b51af47b3e10453ac854']
+    (establishment_id, destination, status, order_id) [name: 'ix_order_items_queue', note: 'Parcial: ((status)::text = ANY ((ARRAY[\'ENVIADO\'::character varying, \'ACEITO\'::character varying, \'EM_PREPARO\'::character varying, \'PRONTO\'::character varying])::text[]))']
+    (establishment_id, id) [name: 'order_items_establishment_id_id_key', unique]
+  }
+}
+
+Table bar.orders {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  account_id uuid [not null]
+  waiter_id uuid [not null]
+  number bigint [not null, increment]
+  sent_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  notes text
+  indexes {
+    (establishment_id, waiter_id) [name: 'ix_fk_2df2439d1f7b27cf91bf']
+    (establishment_id, account_id, sent_at) [name: 'ix_orders_account_sent']
+    (establishment_id, id) [name: 'orders_establishment_id_id_key', unique]
+    (establishment_id, number) [name: 'orders_establishment_id_number_key', unique]
+  }
+}
+
+Table bar.outbox_events {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  aggregate_type varchar(80) [not null]
+  aggregate_id uuid [not null]
+  event_type varchar(100) [not null]
+  payload jsonb [not null]
+  occurred_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  published_at timestamptz
+  attempts integer [not null, default: `0`]
+  next_attempt_at timestamptz
+  indexes {
+    (next_attempt_at, occurred_at) [name: 'ix_outbox_pending', note: 'Parcial: (published_at IS NULL)']
+    (establishment_id, id) [name: 'outbox_events_establishment_id_id_key', unique]
+  }
+}
+
+Table bar.payment_reversals {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  payment_id uuid [not null]
+  cash_session_id uuid [not null]
+  operator_id uuid [not null]
+  authorized_by uuid [not null]
+  amount numeric(14,2) [not null]
+  refund_method varchar(15) [not null]
+  reason text [not null]
+  reversed_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  indexes {
+    (establishment_id, operator_id) [name: 'ix_fk_85adf5a5243590d21127']
+    (establishment_id, authorized_by) [name: 'ix_fk_8b158252cbd638bbad96']
+    (establishment_id, cash_session_id) [name: 'ix_fk_dd06648befa0de08e90b']
+    (establishment_id, payment_id) [name: 'ix_fk_ed8f492aa8a4eca48f9d']
+    (establishment_id, id) [name: 'payment_reversals_establishment_id_id_key', unique]
+  }
+}
+
+Table bar.payments {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  account_id uuid [not null]
+  cash_session_id uuid [not null]
+  operator_id uuid [not null]
+  method varchar(15) [not null]
+  tendered_amount numeric(14,2) [not null]
+  applied_amount numeric(14,2) [not null]
+  change_amount numeric(14,2) [not null, default: `0`]
+  received_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  indexes {
+    (establishment_id, account_id) [name: 'ix_fk_2579a3e73b3c333e7bd4']
+    (establishment_id, operator_id) [name: 'ix_fk_4d6391e6741642edec29']
+    (establishment_id, cash_session_id) [name: 'ix_fk_7c24f069b6f9eff03be3']
+    (establishment_id, id) [name: 'payments_establishment_id_id_key', unique]
+  }
+}
+
+Table bar.permissions {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  code varchar(100) [not null]
+  description text [not null]
+  indexes {
+    (code) [name: 'permissions_code_key', unique]
+  }
+}
+
+Table bar.product_modifier_groups {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  product_id uuid [not null]
+  group_id uuid [not null]
+  indexes {
+    (establishment_id, group_id) [name: 'ix_fk_ed411aa97670a69b69cd']
+    (establishment_id, id) [name: 'product_modifier_groups_establishment_id_id_key', unique]
+    (establishment_id, product_id, group_id) [name: 'product_modifier_groups_establishment_id_product_id_group_i_key', unique]
+  }
+}
+
+Table bar.production_events {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  order_item_id uuid [not null]
+  actor_id uuid [not null]
+  authorized_by uuid
+  from_status varchar(25) [not null]
+  to_status varchar(25) [not null]
+  reason text
+  stock_disposition varchar(30)
+  occurred_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  indexes {
+    (establishment_id, authorized_by) [name: 'ix_fk_71947cac8656a929f03a']
+    (establishment_id, actor_id) [name: 'ix_fk_8d8ce1f33c14136c0df5']
+    (establishment_id, order_item_id) [name: 'ix_fk_cc773f619af32ec7195c']
+    (establishment_id, id) [name: 'production_events_establishment_id_id_key', unique]
+  }
+}
+
+Table bar.products {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  category_id uuid [not null]
+  name varchar(150) [not null]
+  price numeric(14,2) [not null]
+  production_destination varchar(20) [not null]
+  available boolean [not null, default: `true`]
+  active boolean [not null, default: `true`]
+  version bigint [not null, default: `0`]
+  indexes {
+    (establishment_id, category_id) [name: 'ix_fk_0fd3d0a50fe2a0e8f1c4']
+    (establishment_id, category_id, name) [name: 'ix_products_catalog', note: 'Parcial: active']
+    (establishment_id, id) [name: 'products_establishment_id_id_key', unique]
+  }
+}
+
+Table bar.refresh_tokens {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  session_id uuid [not null]
+  token_hash varchar(255) [not null]
+  family_id uuid [not null]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  expires_at timestamptz [not null]
+  used_at timestamptz
+  revoked_at timestamptz
+  indexes {
+    (establishment_id, session_id) [name: 'ix_fk_4eae7f74f72113f177e1']
+    (establishment_id, family_id) [name: 'ix_refresh_tokens_family']
+    (establishment_id, id) [name: 'refresh_tokens_establishment_id_id_key', unique]
+    (token_hash) [name: 'refresh_tokens_token_hash_key', unique]
+  }
+}
+
+Table bar.role_permissions {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  role_id uuid [not null]
+  permission_id uuid [not null]
+  indexes {
+    (permission_id) [name: 'ix_fk_a97470104d735fdbd4d4']
+    (establishment_id, id) [name: 'role_permissions_establishment_id_id_key', unique]
+    (establishment_id, role_id, permission_id) [name: 'role_permissions_establishment_id_role_id_permission_id_key', unique]
+  }
+}
+
+Table bar.roles {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  name varchar(80) [not null]
+  indexes {
+    (establishment_id, id) [name: 'roles_establishment_id_id_key', unique]
+    (establishment_id, name) [name: 'roles_establishment_id_name_key', unique]
+  }
+}
+
+Table bar.table_authorizations {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  user_id uuid [not null]
+  table_id uuid [not null]
+  granted_by uuid [not null]
+  granted_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  revoked_at timestamptz
+  indexes {
+    (establishment_id, granted_by) [name: 'ix_fk_44ded7c5fef83f2a795b']
+    (establishment_id, table_id) [name: 'ix_fk_8533825871b545a6abea']
+    (establishment_id, user_id) [name: 'ix_fk_8ffeea8e0d92b03347ea']
+    (establishment_id, id) [name: 'table_authorizations_establishment_id_id_key', unique]
+    (establishment_id, user_id, table_id) [name: 'uq_table_authorizations_active', note: 'UNIQUE parcial: (revoked_at IS NULL)']
+  }
+}
+
+Table bar.user_roles {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  user_id uuid [not null]
+  role_id uuid [not null]
+  indexes {
+    (establishment_id, role_id) [name: 'ix_fk_770fcad81709155b54ae']
+    (establishment_id, id) [name: 'user_roles_establishment_id_id_key', unique]
+    (establishment_id, user_id, role_id) [name: 'user_roles_establishment_id_user_id_role_id_key', unique]
+  }
+}
+
+Table bar.users {
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  establishment_id uuid [not null]
+  name varchar(150) [not null]
+  email varchar(254) [not null]
+  password_hash text [not null]
+  active boolean [not null, default: `true`]
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`]
+  indexes {
+    (establishment_id, email) [name: 'users_establishment_id_email_key', unique]
+    (establishment_id, id) [name: 'users_establishment_id_id_key', unique]
+  }
+}
+
+Ref: bar.account_adjustments.establishment_id > bar.establishments.id
+Ref: bar.account_adjustments.(establishment_id, account_id) > bar.accounts.(establishment_id, id)
+Ref: bar.account_adjustments.(establishment_id, order_item_id) > bar.order_items.(establishment_id, id)
+Ref: bar.account_adjustments.(establishment_id, actor_id) > bar.users.(establishment_id, id)
+Ref: bar.account_adjustments.(establishment_id, authorized_by) > bar.users.(establishment_id, id)
+Ref: bar.account_adjustments.(establishment_id, reverses_id) > bar.account_adjustments.(establishment_id, id)
+Ref: bar.accounts.establishment_id > bar.establishments.id
+Ref: bar.accounts.(establishment_id, table_id) > bar.bar_tables.(establishment_id, id)
+Ref: bar.accounts.(establishment_id, opened_by) > bar.users.(establishment_id, id)
+Ref: bar.app_sessions.establishment_id > bar.establishments.id
+Ref: bar.app_sessions.(establishment_id, user_id) > bar.users.(establishment_id, id)
+Ref: bar.areas.establishment_id > bar.establishments.id
+Ref: bar.audit_events.establishment_id > bar.establishments.id
+Ref: bar.audit_events.(establishment_id, actor_id) > bar.users.(establishment_id, id)
+Ref: bar.bar_tables.establishment_id > bar.establishments.id
+Ref: bar.bar_tables.(establishment_id, area_id) > bar.areas.(establishment_id, id)
+Ref: bar.cash_closure_lines.establishment_id > bar.establishments.id
+Ref: bar.cash_closure_lines.(establishment_id, closure_id) > bar.cash_closures.(establishment_id, id)
+Ref: bar.cash_closures.establishment_id > bar.establishments.id
+Ref: bar.cash_closures.(establishment_id, cash_session_id) > bar.cash_sessions.(establishment_id, id)
+Ref: bar.cash_closures.(establishment_id, closed_by) > bar.users.(establishment_id, id)
+Ref: bar.cash_closures.(establishment_id, corrects_id) > bar.cash_closures.(establishment_id, id)
+Ref: bar.cash_movements.establishment_id > bar.establishments.id
+Ref: bar.cash_movements.(establishment_id, cash_session_id) > bar.cash_sessions.(establishment_id, id)
+Ref: bar.cash_movements.(establishment_id, operator_id) > bar.users.(establishment_id, id)
+Ref: bar.cash_movements.(establishment_id, authorized_by) > bar.users.(establishment_id, id)
+Ref: bar.cash_sessions.establishment_id > bar.establishments.id
+Ref: bar.cash_sessions.(establishment_id, terminal_id) > bar.cash_terminals.(establishment_id, id)
+Ref: bar.cash_sessions.(establishment_id, operator_id) > bar.users.(establishment_id, id)
+Ref: bar.cash_terminals.establishment_id > bar.establishments.id
+Ref: bar.categories.establishment_id > bar.establishments.id
+Ref: bar.device_sessions.establishment_id > bar.establishments.id
+Ref: bar.device_sessions.(establishment_id, device_id) > bar.devices.(establishment_id, id)
+Ref: bar.device_sessions.(establishment_id, user_id) > bar.users.(establishment_id, id)
+Ref: bar.devices.establishment_id > bar.establishments.id
+Ref: bar.devices.(establishment_id, blocked_by) > bar.users.(establishment_id, id)
+Ref: bar.idempotency_records.establishment_id > bar.establishments.id
+Ref: bar.idempotency_records.(establishment_id, user_id) > bar.users.(establishment_id, id)
+Ref: bar.modifier_groups.establishment_id > bar.establishments.id
+Ref: bar.modifiers.establishment_id > bar.establishments.id
+Ref: bar.modifiers.(establishment_id, group_id) > bar.modifier_groups.(establishment_id, id)
+Ref: bar.order_item_modifiers.establishment_id > bar.establishments.id
+Ref: bar.order_item_modifiers.(establishment_id, order_item_id) > bar.order_items.(establishment_id, id)
+Ref: bar.order_item_modifiers.(establishment_id, modifier_id) > bar.modifiers.(establishment_id, id)
+Ref: bar.order_items.establishment_id > bar.establishments.id
+Ref: bar.order_items.(establishment_id, order_id) > bar.orders.(establishment_id, id)
+Ref: bar.order_items.(establishment_id, product_id) > bar.products.(establishment_id, id)
+Ref: bar.orders.establishment_id > bar.establishments.id
+Ref: bar.orders.(establishment_id, account_id) > bar.accounts.(establishment_id, id)
+Ref: bar.orders.(establishment_id, waiter_id) > bar.users.(establishment_id, id)
+Ref: bar.outbox_events.establishment_id > bar.establishments.id
+Ref: bar.payment_reversals.establishment_id > bar.establishments.id
+Ref: bar.payment_reversals.(establishment_id, payment_id) > bar.payments.(establishment_id, id)
+Ref: bar.payment_reversals.(establishment_id, cash_session_id) > bar.cash_sessions.(establishment_id, id)
+Ref: bar.payment_reversals.(establishment_id, operator_id) > bar.users.(establishment_id, id)
+Ref: bar.payment_reversals.(establishment_id, authorized_by) > bar.users.(establishment_id, id)
+Ref: bar.payments.establishment_id > bar.establishments.id
+Ref: bar.payments.(establishment_id, account_id) > bar.accounts.(establishment_id, id)
+Ref: bar.payments.(establishment_id, cash_session_id) > bar.cash_sessions.(establishment_id, id)
+Ref: bar.payments.(establishment_id, operator_id) > bar.users.(establishment_id, id)
+Ref: bar.product_modifier_groups.establishment_id > bar.establishments.id
+Ref: bar.product_modifier_groups.(establishment_id, product_id) > bar.products.(establishment_id, id)
+Ref: bar.product_modifier_groups.(establishment_id, group_id) > bar.modifier_groups.(establishment_id, id)
+Ref: bar.production_events.establishment_id > bar.establishments.id
+Ref: bar.production_events.(establishment_id, order_item_id) > bar.order_items.(establishment_id, id)
+Ref: bar.production_events.(establishment_id, actor_id) > bar.users.(establishment_id, id)
+Ref: bar.production_events.(establishment_id, authorized_by) > bar.users.(establishment_id, id)
+Ref: bar.products.establishment_id > bar.establishments.id
+Ref: bar.products.(establishment_id, category_id) > bar.categories.(establishment_id, id)
+Ref: bar.refresh_tokens.establishment_id > bar.establishments.id
+Ref: bar.refresh_tokens.(establishment_id, session_id) > bar.device_sessions.(establishment_id, id)
+Ref: bar.role_permissions.establishment_id > bar.establishments.id
+Ref: bar.role_permissions.permission_id > bar.permissions.id
+Ref: bar.role_permissions.(establishment_id, role_id) > bar.roles.(establishment_id, id)
+Ref: bar.roles.establishment_id > bar.establishments.id
+Ref: bar.table_authorizations.establishment_id > bar.establishments.id
+Ref: bar.table_authorizations.(establishment_id, user_id) > bar.users.(establishment_id, id)
+Ref: bar.table_authorizations.(establishment_id, table_id) > bar.bar_tables.(establishment_id, id)
+Ref: bar.table_authorizations.(establishment_id, granted_by) > bar.users.(establishment_id, id)
+Ref: bar.user_roles.establishment_id > bar.establishments.id
+Ref: bar.user_roles.(establishment_id, user_id) > bar.users.(establishment_id, id)
+Ref: bar.user_roles.(establishment_id, role_id) > bar.roles.(establishment_id, id)
+Ref: bar.users.establishment_id > bar.establishments.id

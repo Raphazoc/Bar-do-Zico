@@ -1,0 +1,40 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'br.com.bardozico.android'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'br.com.bardozico.android'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '0.2.0'
+    }
+    buildFeatures { buildConfig true }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    signingConfigs {
+        local {
+            if (System.getenv('BAR_ANDROID_KEYSTORE')) {
+                storeFile file(System.getenv('BAR_ANDROID_KEYSTORE'))
+                storePassword System.getenv('BAR_ANDROID_KEY_PASSWORD')
+                keyAlias 'bardozico'
+                keyPassword System.getenv('BAR_ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
+    flavorDimensions 'ambiente'
+    productFlavors {
+        operacao {
+            dimension 'ambiente'
+            resValue 'string', 'app_name', 'Bar do Zico'
+            buildConfigField 'String', 'DEFAULT_URL', '"'+(System.getenv('BAR_ANDROID_URL') ?: 'https://192.168.0.8:8443')+'"'
+        }
+        treinamento {
+            dimension 'ambiente'
+            applicationIdSuffix '.treinamento'
+            resValue 'string', 'app_name', 'Zico - Treinamento'
+            buildConfigField 'String', 'DEFAULT_URL', '"'+(System.getenv('BAR_ANDROID_TRAINING_URL') ?: 'https://192.168.0.8:18443')+'"'
+        }
+    }
+    buildTypes { release { signingConfig signingConfigs.local; minifyEnabled false } }
+}

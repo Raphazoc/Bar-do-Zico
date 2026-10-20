@@ -1,0 +1,25 @@
+# Referência histórica de JPA. A API implementada usa JDBC em application.yml.
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/gestao_bar}
+    username: ${DB_USERNAME:bar_app}
+    password: ${DB_PASSWORD}
+    hikari:
+      transaction-isolation: TRANSACTION_READ_COMMITTED
+      connection-init-sql: SET TIME ZONE 'UTC'
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: bar
+        jdbc:
+          time_zone: UTC
+  flyway:
+    # No compose, o serviço migrate aplica as mudanças com outra credencial.
+    enabled: ${DB_MIGRATIONS_ENABLED:false}
+    default-schema: bar
+    schemas: bar
+    locations: classpath:db/migration
+    clean-disabled: true

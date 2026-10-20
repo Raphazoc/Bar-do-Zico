@@ -1,0 +1,34 @@
+server:
+  address: ${BAR_BIND:127.0.0.1}
+  port: ${BAR_PORT:8080}
+  error:
+    include-message: never
+    include-stacktrace: never
+spring:
+  application:
+    name: bar-do-zico
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://127.0.0.1:5432/gestao_bar?currentSchema=bar}
+    username: ${DB_USERNAME:bar_app}
+    password: ${DB_PASSWORD}
+    hikari:
+      transaction-isolation: TRANSACTION_READ_COMMITTED
+      connection-init-sql: SET TIME ZONE 'UTC'
+      maximum-pool-size: 8
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+bar:
+  open-access: ${BAR_OPEN_ACCESS:true}
+  android-urls: ${BAR_ANDROID_URLS:}
+  public-certificate: ${BAR_PUBLIC_CERTIFICATE:}
+  backup-directory: ${BAR_BACKUP_DIRECTORY:}
+  training: ${BAR_TRAINING:false}
+  unit-id: ${BAR_UNIT_ID:cae8375a-9513-467a-ab09-8a5f5ac5f5f7}
+  secure-cookie: ${BAR_SECURE_COOKIE:false}
+  allowed-hosts: ${BAR_ALLOWED_HOSTS:127.0.0.1,localhost,::1}
+logging:
+  level:
+    root: INFO
+    org.springframework: INFO
+    org.springframework.security: WARN

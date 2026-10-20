@@ -1,0 +1,55 @@
+import React,{useEffect,useRef,useState} from 'react';
+import {api,Form,DataTable,SimpleDialog,money,names,date} from './legacy';
+import type {Props,Row} from './legacy';
+
+export function Areas(p:Props){
+  const [edit,setEdit]=useState<Row>({}),[deleting,setDeleting]=useState<Row|null>(null);
+  const count=deleting?p.data('tables').filter(t=>t.area_id===deleting.id).length:0;
+  const destinations=p.data('areas').filter(a=>a.active&&a.id!==deleting?.id);
+  return <div id="cadastro-areas"><h2>Locais do bar</h2><p>Ex.: Salão, varanda ou deck.</p>
+    <Form key={edit.id||'novo'} initial={edit} disabled={p.disabled} fields={[{name:'name',label:'Nome do local'},{name:'active',label:'Usar este local',type:'checkbox',default:'true'}]} submit={edit.id?'Salvar alterações':'Salvar local'} onSubmit={async b=>{await p.command('area.save',{...b,...(edit.id?{id:edit.id}:{})});setEdit({});}}/>
+    {edit.id&&<button className="secondary" onClick={()=>setEdit({})}>Cancelar edição</button>}
+    <DataTable rows={p.data('areas')} columns={[["name","Local"],["id","Mesas",id=>p.data('tables').filter(t=>t.area_id===id).length],["id","Ações",(_,a)=><div className="row-actions"><button className="secondary" disabled={p.disabled} aria-label={'Editar local '+a.name} onClick={()=>{setEdit(a);document.getElementById('cadastro-areas')?.scrollIntoView({block:'start'});}}>Editar</button><button className="danger-outline" disabled={p.disabled} aria-label={'Excluir local '+a.name} onClick={()=>setDeleting(a)}>Excluir</button></div>]]}/>
+    {deleting&&<SimpleDialog title="Excluir local?" onClose={()=>{if(!p.disabled)setDeleting(null);}}><p>Excluir <b>{deleting.name}</b>?</p>{count>0?<p>{count} {count===1?'mesa será transferida':'mesas serão transferidas'}. Os atendimentos continuam normalmente.</p>:<p>Este local não tem mesas cadastradas.</p>}{count>0&&!destinations.length&&<p role="alert">Cadastre outro local ativo antes de excluir este.</p>}<Form key={deleting.id} disabled={p.disabled||(count>0&&!destinations.length)} fields={count?[{name:'destinationAreaId',label:'Transferir mesas para',options:destinations}]:[]} submit="Sim, excluir local" onSubmit={async b=>{await p.command('area.delete',{areaId:deleting.id,...b});if(edit.id===deleting.id)setEdit({});setDeleting(null);}}/><button className="secondary" data-dialog-cancel disabled={p.disabled} onClick={()=>setDeleting(null)}>Cancelar</button></SimpleDialog>}
+  </div>;
+}
+
+export function CashBalances({p,session,training}:{p:Props;session:Row|undefined;training:boolean}){
+  const key='bar.cash.showBalances.'+(training?'training':'operation');
+  const [visible,setVisible]=useState(()=>{try{return localStorage.getItem(key)!=='false';}catch{return true;}});
+  const summary=p.data('cashSummaries').find(s=>s.cash_session_id===session?.id);
+  return <section className="panel cash-summary" aria-label="Resumo do caixa selecionado"><div className="section-title"><h2>Valores deste caixa{session?.status==='FECHADA'?' · Encerrado':''}</h2><button className="secondary" aria-pressed={visible} onClick={()=>{const next=!visible;setVisible(next);try{localStorage.setItem(key,String(next));}catch{}}}>{visible?'Ocultar valores':'Mostrar valores'}</button></div>{!session?<p>Selecione um caixa ou abra um novo para acompanhar os valores.</p>:!summary?<p>Atualizando os valores deste caixa…</p>:<div className="balance-cards"><div><span>{session.status==='FECHADA'?'Dinheiro previsto no fechamento':'Dinheiro em caixa'}</span><strong>{visible?money(summary.cash_amount):'••••'}</strong><small>Abertura, dinheiro recebido, entradas, retiradas e devoluções.</small></div><div><span>Recebido em vendas</span><strong>{visible?money(summary.net_received_amount):'••••'}</strong><small>Todas as formas de pagamento, descontadas as devoluções.</small></div></div>}</section>;
+}
+
+const permissionGroups:[string,[string,string][]][]=[
+  ['Mesas e atendimento',[['table.manage','Cadastrar, editar e excluir mesas e locais'],['account.open','Abrir atendimento'],['order.create','Adicionar produtos à mesa'],['order.cancel','Remover produtos da mesa']]],
+  ['Caixa',[['cash.open','Abrir caixa'],['payment.receive','Receber pagamentos'],['account.adjust','Aplicar desconto ou acréscimo'],['account.close','Finalizar mesa quitada'],['cash.move','Registrar entrada ou retirada de dinheiro'],['cash.close','Conferir e fechar caixa'],['payment.reverse','Devolver um pagamento'],['account.reopen','Reabrir uma conta para correção']]],
+  ['Estoque e cardápio',[['catalog.manage','Cadastrar e excluir produtos; alterar preços e disponibilidade'],['stock.adjust','Registrar entradas, saídas e ajustes de estoque']]],
+  ['Administração',[['user.manage','Gerenciar funcionários e permissões'],['report.view','Ver vendas e relatórios'],['audit.view','Consultar histórico de alterações']]]
+];
+export function PermissionFields({permissions,codes,setCodes}:{permissions:Row[];codes:string[];setCodes:(codes:string[])=>void}){
+  const supported=new Set(permissions.map(p=>p.id));
+  return <div className="permission-groups">{permissionGroups.map(([title,fields])=><fieldset key={title}><legend>{title}</legend>{fields.filter(([id])=>supported.has(id)).map(([id,label])=><label className="check" key={id}><input type="checkbox" checked={codes.includes(id)} onChange={e=>setCodes(e.target.checked?[...codes,id]:codes.filter(c=>c!==id))}/>{label}</label>)}</fieldset>)}</div>;
+}
+
+const actions:Record<string,string>={
+  'staff.save':'Funcionário cadastrado ou alterado','staff.delete':'Funcionário excluído','user.create':'Funcionário cadastrado','user.active':'Situação do funcionário alterada','role.save':'Permissões alteradas',
+  'payment.receive':'Pagamento registrado','payment.reverse':'Pagamento devolvido','order.create':'Produto adicionado à mesa','item.cancel':'Produto removido da mesa','item.status':'Situação antiga de item alterada',
+  'account.open':'Atendimento aberto','account.close':'Atendimento encerrado','account.reopen':'Conta reaberta para correção','account.adjust':'Desconto ou acréscimo registrado',
+  'cash.open':'Caixa aberto','cash.close':'Caixa fechado','cash.move':'Entrada ou retirada de dinheiro','cash.correct':'Contagem do caixa corrigida','terminal.save':'Caixa cadastrado ou alterado',
+  'product.save':'Produto cadastrado ou alterado','product.delete':'Produto excluído','product.availability':'Disponibilidade do produto alterada','product.groups':'Complementos do produto alterados','stock.move':'Estoque movimentado',
+  'category.save':'Categoria cadastrada ou alterada','modifier.save':'Complemento cadastrado ou alterado','modifier-group.save':'Grupo de complementos alterado','table.save':'Mesa cadastrada ou alterada','table.delete':'Mesa excluída','table.authorize':'Liberação de mesa alterada','area.save':'Local cadastrado ou alterado','area.delete':'Local excluído',
+  'operator.selected':'Responsável do aparelho selecionado','user.login':'Acesso registrado','user.logout':'Acesso encerrado','user.password':'Credenciais alteradas'
+};
+export function AuditHistory(){
+  const [rows,setRows]=useState<Row[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+  return <details className="panel"><summary>Histórico de alterações</summary><p>Alterações recentes no bar, com data e motivo quando informado.</p><button className="secondary" disabled={busy} onClick={async()=>{setBusy(true);try{setRows(await api('/audit'));setError('');}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Consultar histórico</button>{error&&<p role="alert" className="error">{error}</p>}<DataTable rows={rows} columns={[["occurred_at","Quando",v=>date(v)],["action","Alteração",v=>actions[String(v).replace(/\.reason$/,'')]||'Alteração registrada'],["reason","Motivo"]]}/></details>;
+}
+
+function localDay(zone:string){const parts=new Intl.DateTimeFormat('en-US',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());return ['year','month','day'].map(type=>parts.find(p=>p.type===type)!.value).join('-');}
+export function Sales({timezone,revision}:{timezone:string;revision:string}){
+  const [period,setPeriod]=useState(()=>({from:localDay(timezone),to:localDay(timezone)})),[page,setPage]=useState(0),[result,setResult]=useState<Row|null>(null),[totals,setTotals]=useState<Row|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(true),[request,setRequest]=useState(0);
+  const sequence=useRef(0);
+  useEffect(()=>{const current=++sequence.current;setLoading(true);setError('');const query=new URLSearchParams(period);Promise.all([api('/reports/sales?'+query+'&page='+page),api('/reports?'+query)]).then(([sales,summary])=>{if(sequence.current===current){setResult(sales);setTotals(summary);}}).catch(e=>{if(sequence.current===current){setResult(null);setTotals(null);setError(e.message);}}).finally(()=>{if(sequence.current===current)setLoading(false);});return()=>{sequence.current++;};},[period.from,period.to,page,revision,request]);
+  return <><div className="page-title"><div><h1>Vendas por mesa</h1><p>Cada linha é um atendimento encerrado. A mesma mesa pode aparecer várias vezes.</p></div></div><section className="panel"><Form initial={period} fields={[{name:'from',label:'Data inicial',type:'date'},{name:'to',label:'Data final',type:'date'}]} submit="Consultar período" onSubmit={async b=>{setPage(0);setPeriod({from:b.from,to:b.to});setRequest(n=>n+1);}}/>{error&&<p role="alert" className="error">{error}</p>}{loading&&!result?<p role="status">Consultando vendas…</p>:result&&<><div className="total-line"><span>{result.totalElements} atendimentos encerrados no período</span><b>{money(totals?.closedSales.total)}</b></div><DataTable rows={result.rows} columns={[["table_name","Mesa",v=>/^mesa(?:\s|$)/i.test(v)||v==='Sem mesa identificada'?v:'Mesa '+v],["closed_at","Encerrado em",v=>new Intl.DateTimeFormat('pt-BR',{timeZone:result.timezone,day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(v))],["total","Valor",v=>money(v)]]}/><div className="pagination"><button className="secondary" disabled={page===0} onClick={()=>{setPage(page-1);window.scrollTo(0,0);}}>Anterior</button><span>Página {page+1} de {Math.max(1,Math.ceil(result.totalElements/50))}</span><button className="secondary" disabled={(page+1)*50>=result.totalElements} onClick={()=>{setPage(page+1);window.scrollTo(0,0);}}>Próxima</button></div></>}</section>{totals&&<details className="panel"><summary>Recebimentos, devoluções e conferências</summary><h2>Recebimentos no período</h2><DataTable rows={totals.payments} columns={[["method","Forma",v=>names[v]],["count","Quantidade"],["amount","Valor",v=>money(v)]]}/><h2>Devoluções no período</h2><DataTable rows={totals.refunds} columns={[["method","Forma",v=>names[v]],["amount","Valor",v=>money(v)]]}/><h2>Conferências de caixa</h2><DataTable rows={totals.closures} columns={[["closed_at","Data",v=>date(v)],["method","Forma",v=>names[v]],["expected_amount","Esperado",v=>money(v)],["counted_amount","Contado",v=>money(v)],["difference_amount","Diferença",v=>money(v)]]}/></details>}</>;
+}

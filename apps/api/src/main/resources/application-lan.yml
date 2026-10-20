@@ -1,0 +1,11 @@
+server:
+  address: 0.0.0.0
+  port: 8443
+  ssl:
+    enabled: true
+    key-store: ${BAR_TLS_KEYSTORE}
+    key-store-type: PKCS12
+    key-store-password: ${BAR_TLS_PASSWORD}
+    key-alias: bar
+bar:
+  secure-cookie: true
