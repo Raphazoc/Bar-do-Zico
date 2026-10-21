@@ -1,0 +1,7 @@
+unit: api-events
+commit: false
+candidate_splits:
+  - id: apps/api/src/main/java/br/com/bardozico/LocalEvents.java:16-35
+    drivers: [execution_model_split, lifecycle_split]
+    rationale: "Long-lived SSE subscription lifecycle and scheduled outbox delivery have independent execution and failure semantics."
+    source_slice: {file: apps/api/src/main/java/br/com/bardozico/LocalEvents.java, lines: [16, 35]}

@@ -1,0 +1,60 @@
+flows:
+  - name: session-cookie-to-actor
+    medium: cookie
+    key: "BAR_SESSION or BAR_TRAINING_SESSION"
+    writer:
+      unit: api-identity
+      source_loc: apps/api/src/main/java/br/com/bardozico/IdentityController.java:25
+    reader:
+      unit: api-bar
+      source_loc: apps/api/src/main/java/br/com/bardozico/SecurityConfig.java:58
+    pairing: matched
+    must_preserve: true
+    must_confirm: null
+    verification_hint: "Authenticate then call /api/me and /api/state; verify training and permission context."
+    notes: "Cookie is HttpOnly, secure according to bar.secure-cookie, SameSite Strict and scoped to /api."
+
+  - name: pending-command-replay
+    medium: static
+    key: "bar.pending"
+    writer:
+      unit: web-front
+      source_loc: apps/web/src/Front.tsx:40
+    reader:
+      unit: web-front
+      source_loc: apps/web/src/Front.tsx:48
+    pairing: matched
+    must_preserve: true
+    must_confirm: null
+    verification_hint: "Interrupt a command after persistence and use Conferir envio; command must not duplicate."
+    notes: "The browser stores an actor, operation, body and idempotency key in localStorage/sessionStorage."
+
+  - name: outbox-to-sse
+    medium: database
+    key: "bar.outbox_events.published_at"
+    writer:
+      unit: api-bar
+      source_loc: apps/api/src/main/java/br/com/bardozico/Operations.java:62
+    reader:
+      unit: api-events
+      source_loc: apps/api/src/main/java/br/com/bardozico/LocalEvents.java:27
+    pairing: matched
+    must_preserve: true
+    must_confirm: null
+    verification_hint: "Execute a command while a web client has EventSource open; client should refresh state once."
+    notes: "Events carry invalidation IDs only and are scoped by establishment."
+
+  - name: configured-origin
+    medium: static
+    key: "SharedPreferences connection.address"
+    writer:
+      unit: android-attendance-shell
+      source_loc: apps/android/app/src/main/java/br/com/bardozico/android/MainActivity.java:18
+    reader:
+      unit: android-attendance-shell
+      source_loc: apps/android/app/src/main/java/br/com/bardozico/android/MainActivity.java:72
+    pairing: matched
+    must_preserve: true
+    must_confirm: null
+    verification_hint: "Restart the app after saving an HTTPS address; it must load the same validated origin."
+    notes: "Default URL is flavor-specific and invalid/placeholder values are replaced."

@@ -1,0 +1,7 @@
+unit: web-table-guide
+commit: false
+candidate_splits:
+  - id: apps/web/src/TableGuide.tsx:7-33
+    drivers: [protocol_split, reuse_split]
+    rationale: "Native printer delegation and browser PDF preview are alternative delivery paths around one account guide contract."
+    source_slice: {file: apps/web/src/TableGuide.tsx, lines: [7, 33]}

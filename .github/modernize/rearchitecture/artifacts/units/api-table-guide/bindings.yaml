@@ -1,0 +1,15 @@
+unit: api-table-guide
+bindings:
+  - type: route-declaration
+    name: "@GetMapping(value=\"/api/accounts/{id}/guide.pdf\", produces=\"application/pdf\")"
+    source_loc: apps/api/src/main/java/br/com/bardozico/TableGuideController.java:14
+    target: TableGuideController.guide
+    must_appear_in_target: true
+    notes: "PDF response is non-cacheable and inline."
+runtime_config:
+  - key: bar.training
+    source_loc: apps/api/src/main/java/br/com/bardozico/TableGuideController.java:13
+    source: annotation
+    default_value: "false"
+    must_appear_in_target: true
+    notes: "Marks the guide as training mode."

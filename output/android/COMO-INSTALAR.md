@@ -9,8 +9,8 @@ Versão Android **0.2.3, código 4**. Instale por cima da versão anterior para 
 o perfil de **atendimento**; a assinatura foi preservada. Não é necessário desinstalar.
 O **PC é administrador**, com executável **0.2.2**. Os dois APKs mostram **Mesas,
 Cardápio e Configurações do aplicativo**. Toque em **Abrir mesa** para iniciar,
-consulte o consumo e adicione produtos. Caixa, exclusões,
-cadastros e gestão ficam no computador. O sistema continua sem login.
+use **Adicionar mesa** para cadastrar uma mesa nova, consulte o consumo e adicione produtos.
+Edição/exclusão de mesas, caixa e demais cadastros de gestão ficam no computador. O sistema continua sem login.
 
 ## Primeiro teste
 

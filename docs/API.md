@@ -5,6 +5,67 @@ fonte de verdade do modelo. JDBC foi usado para coordenar explicitamente os
 bloqueios, views e transações já definidos; JPA não foi introduzido nesta entrega.
 A API não altera o schema. Flyway aplica as migrações separadamente.
 
+## Caixa diário e conferência antes do pagamento — V19
+
+`POST /api/commands/cash.start` aceita `{}`, exige `cash.open` e usa idempotência.
+O PC envia uma vez por janela (chave em `sessionStorage`), com reenvio seguro.
+Marca turnos abertos anteriores com `review_required=true`; não cria caixa nem
+fechamento e não modifica valores. Android não chama esse comando e não possui
+permissão. Uma nova janela marca também turnos em uso em outra janela do PC.
+
+Turnos pendentes aceitam apenas leitura e `cash.close` para encerrar.
+`cash.open` é bloqueado na unidade enquanto houver pendências. A abertura nova
+continua com R$ 0,00 por padrão. Startup e abertura compartilham bloqueio de
+transação; recebimentos, devoluções e movimentações verificam o estado sob lock.
+V19 adapta a proteção de imutabilidade e as guardas financeiras, sem mudar
+dados anteriores ou migrações entregues.
+
+`cash.close` aceita `{sessionId, useSystemTotals:true}`: calcula as seis formas
+na view completa, sob lock da sessão, e grava o fechamento com os valores do
+sistema. Abertura, troco, pagamentos parciais, devoluções e movimentos entram nas
+regras existentes. O histórico registra a origem dos valores. Não recebe
+`counted` junto desse modo; `cash.correct` permanece separado. O formato antigo
+com seis contagens continua aceito para compatibilidade. Saldos negativos são
+recusados com orientação para revisar os movimentos, sem gravar fechamento.
+
+A impressão e o recebimento ficam disponíveis juntos. `payment.receive` aceita
+`expectedTotal` e `expectedBalance` opcionais em conjunto; se mudaram desde a
+conferência, retorna 409 antes de gravar, sob lock da conta. O cliente atual os
+envia sempre e confere novamente o consumo antes do envio, sem exigir impressão
+ou etapa de confirmação da guia. Clientes antigos permanecem
+compatíveis com o comando sem esses campos.
+
+## Guia da mesa — PDF de 80 mm
+
+`GET /api/accounts/{id}/guide.pdf` retorna `application/pdf`, sem cache, para
+conferência e impressão no PC. Exige `payment.receive` ou `report.view` e nega
+atores de atendimento, inclusive Android por loopback. Conta de outra unidade
+retorna 404. Não há comando, migração ou mudança no atendimento ao imprimir.
+
+Usa snapshot de leitura `REPEATABLE READ`, histórico dos nomes de mesa/produtos,
+itens não cancelados, opcionais por unidade, ajustes líquidos de reversões e
+totais oficiais da view (recebido descontado de devoluções). Consulta todas as
+linhas do atendimento; contas longas são paginadas. Datas no fuso do bar e
+treinamento marcado em todas as páginas. [Guia de uso](IMPRESSAO-DA-MESA.md).
+
+## Atualização V18 — cadastro de mesas no atendimento
+
+`POST /api/commands/table.create` aceita `{number, areaId?}` e exige `table.create`.
+Apenas esses dois campos são aceitos; `id`, estado, atividade e outros campos
+são rejeitados. Edição e exclusão continuam em `table.save`/`table.delete`,
+com `table.manage`, sem ampliação do acesso administrativo do celular.
+
+O local deve estar ativo e pertencer ao bar. Sem `areaId`, usa o primeiro local
+ativo; se não houver nenhum local cadastrado, cria Salão na mesma transação.
+Locais existentes totalmente inativos exigem atuação do administrador.
+Cadastro, local padrão, idempotência e auditoria são atômicos; cadastros e
+mudanças de locais compartilham bloqueio de salão. Números repetidos são rejeitados.
+
+V18 acrescenta a permissão e a concede aos perfis que já possuem `table.manage`
+ou `account.open`, preservando permissões anteriores. O perfil fixo do celular
+recebe `table.create`, `account.open` e `order.create`. API e interface mudam;
+APK 0.2.3 e executável Windows 0.2.2 continuam compatíveis.
+
 ## Atualização V17 — PC administrador e celular de atendimento
 
 O modo local padrão combina `BAR_OPEN_ACCESS=true` e `BAR_DEVICE_ACCESS=true`.

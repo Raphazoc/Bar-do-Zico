@@ -1,0 +1,7 @@
+unit: web-adjustments
+commit: false
+candidate_splits:
+  - id: apps/web/src/Adjustments.tsx:5-57
+    drivers: [concern_split, change_cadence_split]
+    rationale: "Floor management, cash balances, permissions, audit and sales reporting are separate UI concerns with distinct API operations."
+    source_slice: {file: apps/web/src/Adjustments.tsx, lines: [5, 57]}

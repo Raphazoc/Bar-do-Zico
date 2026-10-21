@@ -1,0 +1,24 @@
+unit: web-table-guide
+side_effects: []
+branches:
+  - source_loc: apps/web/src/TableGuide.tsx:14
+    condition: "native barReceiptPrinter bridge exists"
+    behavior: "Delegate preview to the native desktop printer bridge."
+    must_preserve: true
+  - source_loc: apps/web/src/TableGuide.tsx:23
+    condition: "PDF response is not successful or not application/pdf"
+    behavior: "Show a visible guide preparation error."
+    must_preserve: true
+error_paths:
+  - source_loc: apps/web/src/TableGuide.tsx:15
+    trigger: "guide request fails or is aborted"
+    outcome: "Show error in the guide preview without changing account state."
+    contract: "role=alert UI message."
+    must_preserve: true
+concurrency:
+  model: event-loop
+  tx_boundary:
+    source_loc: apps/web/src/TableGuide.tsx:12
+    scope: "One abortable fetch per open account guide; object URL revoked on cleanup."
+    isolation: "server-defined"
+    must_preserve: true

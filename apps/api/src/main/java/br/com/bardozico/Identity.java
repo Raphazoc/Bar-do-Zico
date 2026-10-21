@@ -73,7 +73,7 @@ class Identity {
                     throw new ApiError(503,"O acesso de atendimento precisa ser conferido no computador.");
                 id=(UUID)user.get("id");
             }
-            return new Actor(id,unit,null,"Atendimento do celular",null,null,Set.of("account.open","order.create"),true);
+            return new Actor(id,unit,null,"Atendimento do celular",null,null,Set.of("table.create","account.open","order.create"),true);
         });
     }
     String selectOperator(UUID user) {

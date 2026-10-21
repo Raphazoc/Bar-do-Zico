@@ -1,0 +1,9 @@
+unit: web-table-guide
+bindings:
+  - type: convention
+    name: "window.barReceiptPrinter.preview(accountId)"
+    source_loc: apps/web/src/TableGuide.tsx:15
+    target: TableGuideButton
+    must_appear_in_target: true
+    notes: "Optional desktop host bridge; browser fallback renders an iframe and print link."
+runtime_config: []

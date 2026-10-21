@@ -1,0 +1,202 @@
+units:
+  - name: api-identity
+    trigger: api
+    trigger_detail: "HTTP /api/health, /api/login, /api/logout, /api/me, /api/operator, /api/password"
+    source_anchors:
+      - path: apps/api/src/main/java/br/com/bardozico/IdentityController.java
+        line: 10
+    exported_signature:
+      - method: "POST /api/login(Login) -> {ok:boolean} + session cookie"
+        source_loc: apps/api/src/main/java/br/com/bardozico/IdentityController.java:28
+        stability: frozen
+      - method: "GET /api/me() -> actor and access metadata"
+        source_loc: apps/api/src/main/java/br/com/bardozico/IdentityController.java:32
+        stability: frozen
+    dynamic_entrypoints: []
+    depends_on:
+      - unit: api-bar
+        via: "authenticated Actor context and session cookie"
+    shared_refs:
+      - module: api-actor-security
+        used_fields: [id, unit, permissions, attendanceOnly, session]
+
+  - name: api-bar
+    trigger: api
+    trigger_detail: "HTTP /api/state, /api/accounts/{id}, /api/reports, /api/audit, /api/commands/{operation}"
+    source_anchors:
+      - path: apps/api/src/main/java/br/com/bardozico/BarController.java
+        line: 10
+      - path: apps/api/src/main/java/br/com/bardozico/Operations.java
+        line: 14
+    exported_signature:
+      - method: "GET /api/state() -> role-filtered operational state"
+        source_loc: apps/api/src/main/java/br/com/bardozico/BarController.java:19
+        stability: frozen
+      - method: "POST /api/commands/{operation}(JsonNode, Idempotency-Key) -> {id:uuid}"
+        source_loc: apps/api/src/main/java/br/com/bardozico/BarController.java:13
+        stability: frozen
+    dynamic_entrypoints:
+      - target: br.com.bardozico.Operations
+        mechanism: di
+        source_loc: apps/api/src/main/java/br/com/bardozico/Operations.java:14
+      - target: br.com.bardozico.Management
+        mechanism: di
+        source_loc: apps/api/src/main/java/br/com/bardozico/Management.java:10
+    depends_on:
+      - unit: api-identity
+        via: "Spring Security Actor authentication"
+      - unit: api-events
+        via: "outbox_events invalidation"
+    shared_refs:
+      - module: api-actor-security
+        used_fields: [id, unit, permissions, attendanceOnly, session]
+      - module: api-database-contract
+        used_fields: [establishment_id, accounts, orders, order_items, payments, users]
+
+  - name: api-setup
+    trigger: api
+    trigger_detail: "HTTP /api/setup, /api/setup/qr, /api/setup/certificate, /api/setup/backup"
+    source_anchors:
+      - path: apps/api/src/main/java/br/com/bardozico/SetupController.java
+        line: 15
+    exported_signature:
+      - method: "GET /api/setup() -> setup and backup status"
+        source_loc: apps/api/src/main/java/br/com/bardozico/SetupController.java:38
+        stability: frozen
+    dynamic_entrypoints: []
+    depends_on:
+      - unit: api-identity
+        via: "authenticated user.manage permission"
+    shared_refs:
+      - module: api-actor-security
+        used_fields: [id, unit, permissions]
+
+  - name: api-events
+    trigger: api
+    trigger_detail: "SSE GET /api/events with local scheduled outbox delivery"
+    source_anchors:
+      - path: apps/api/src/main/java/br/com/bardozico/LocalEvents.java
+        line: 11
+    exported_signature:
+      - method: "GET /api/events() -> text/event-stream change events"
+        source_loc: apps/api/src/main/java/br/com/bardozico/LocalEvents.java:16
+        stability: frozen
+    dynamic_entrypoints:
+      - target: br.com.bardozico.LocalEvents.deliver
+        mechanism: annotation-scan
+        source_loc: apps/api/src/main/java/br/com/bardozico/LocalEvents.java:21
+    depends_on: []
+    shared_refs:
+      - module: api-actor-security
+        used_fields: [id, unit, session]
+
+  - name: api-table-guide
+    trigger: api
+    trigger_detail: "HTTP GET /api/accounts/{id}/guide.pdf"
+    source_anchors:
+      - path: apps/api/src/main/java/br/com/bardozico/TableGuideController.java
+        line: 12
+    exported_signature:
+      - method: "GET /api/accounts/{id}/guide.pdf() -> application/pdf"
+        source_loc: apps/api/src/main/java/br/com/bardozico/TableGuideController.java:15
+        stability: frozen
+    dynamic_entrypoints: []
+    depends_on: []
+    shared_refs:
+      - module: api-actor-security
+        used_fields: [id, unit, permissions, attendanceOnly]
+      - module: api-database-contract
+        used_fields: [accounts, order_items, payments]
+
+  - name: web-front
+    trigger: page
+    trigger_detail: "React application root rendered by apps/web/src/main.tsx"
+    source_anchors:
+      - path: apps/web/src/main.tsx
+        line: 4
+      - path: apps/web/src/Front.tsx
+        line: 11
+    exported_signature:
+      - method: "Front() -> authenticated operational UI"
+        source_loc: apps/web/src/Front.tsx:11
+        stability: frozen
+    dynamic_entrypoints: []
+    depends_on:
+      - unit: api-bar
+        via: "fetch /api/state and /api/commands/{operation}"
+      - unit: api-identity
+        via: "fetch /api/me and session operations"
+      - unit: api-events
+        via: "EventSource /api/events"
+    shared_refs:
+      - module: web-ui-primitives
+        used_fields: [api, Form, DataTable, SimpleDialog, money, date, names]
+
+  - name: web-adjustments
+    trigger: page
+    trigger_detail: "Admin and operational screens imported by Front: areas, cash, permissions, audit, sales"
+    source_anchors:
+      - path: apps/web/src/Adjustments.tsx
+        line: 5
+    exported_signature:
+      - method: "Areas/ CashBalances/ PermissionFields/ AuditHistory/ Sales(props) -> React UI"
+        source_loc: apps/web/src/Adjustments.tsx:5
+        stability: must_preserve
+    dynamic_entrypoints: []
+    depends_on:
+      - unit: api-bar
+        via: "commands and state collections"
+    shared_refs:
+      - module: web-ui-primitives
+        used_fields: [api, Form, DataTable, SimpleDialog, money, date, names]
+
+  - name: web-table-guide
+    trigger: page
+    trigger_detail: "Table guide preview/print action from account screens"
+    source_anchors:
+      - path: apps/web/src/TableGuide.tsx
+        line: 7
+    exported_signature:
+      - method: "TableGuideButton(accountId) -> PDF preview or native printer bridge"
+        source_loc: apps/web/src/TableGuide.tsx:7
+        stability: frozen
+    dynamic_entrypoints: []
+    depends_on:
+      - unit: api-table-guide
+        via: "fetch /api/accounts/{id}/guide.pdf"
+    shared_refs: []
+
+  - name: android-attendance-shell
+    trigger: page
+    trigger_detail: "Android MainActivity WebView loading configured HTTPS bar origin"
+    source_anchors:
+      - path: apps/android/app/src/main/java/br/com/bardozico/android/MainActivity.java
+        line: 12
+    exported_signature:
+      - method: "MainActivity.onCreate(Bundle) -> attendance WebView shell"
+        source_loc: apps/android/app/src/main/java/br/com/bardozico/android/MainActivity.java:18
+        stability: frozen
+    dynamic_entrypoints: []
+    depends_on:
+      - unit: web-front
+        via: "same-origin WebView"
+      - unit: api-identity
+        via: "device-based attendance authentication"
+    shared_refs: []
+
+  - name: desktop-shell
+    trigger: page
+    trigger_detail: "Windows desktop application hosting the administrator web UI and receipt printing"
+    source_anchors:
+      - path: apps/desktop/src/main/java/br/com/bardozico/desktop/BarDesktop.java
+        line: 1
+      - path: apps/desktop/src/main/java/br/com/bardozico/desktop/ReceiptPrinter.java
+        line: 1
+    exported_signature: []
+    dynamic_entrypoints: []
+    depends_on:
+      - unit: web-front
+        via: "embedded/hosted administrator UI"
+      - unit: api-table-guide
+        via: "receipt preview/printing"
+    shared_refs: []

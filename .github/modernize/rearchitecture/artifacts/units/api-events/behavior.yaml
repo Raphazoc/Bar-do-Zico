@@ -1,0 +1,30 @@
+unit: api-events
+side_effects:
+  - source_loc: apps/api/src/main/java/br/com/bardozico/LocalEvents.java:27
+    effect: "Publishes pending outbox event IDs to connected clients and marks delivered events."
+    must_preserve: true
+  - source_loc: apps/api/src/main/java/br/com/bardozico/LocalEvents.java:17
+    effect: "Removes completed, timed-out or failed SSE clients."
+    must_preserve: true
+branches:
+  - source_loc: apps/api/src/main/java/br/com/bardozico/LocalEvents.java:23
+    condition: "session is revoked, expired or user inactive"
+    behavior: "Complete the emitter and remove the client."
+    must_preserve: true
+  - source_loc: apps/api/src/main/java/br/com/bardozico/LocalEvents.java:31
+    condition: "no client receives an event"
+    behavior: "Increment attempts and schedule a retry after five seconds."
+    must_preserve: true
+error_paths:
+  - source_loc: apps/api/src/main/java/br/com/bardozico/LocalEvents.java:30
+    trigger: "SSE send fails"
+    outcome: "Remove and complete the failed client; continue serving other clients."
+    contract: "SSE connection closes; client reconnects."
+    must_preserve: true
+concurrency:
+  model: thread-pool
+  tx_boundary:
+    source_loc: apps/api/src/main/java/br/com/bardozico/LocalEvents.java:21
+    scope: "Scheduled polling and per-event publication; database updates mark attempts."
+    isolation: "database default"
+    must_preserve: true

@@ -1,0 +1,39 @@
+unit: web-front
+side_effects:
+  - source_loc: apps/web/src/Front.tsx:39
+    effect: "Persists pending commands and clears them only after confirmed server response."
+    must_preserve: true
+  - source_loc: apps/web/src/Front.tsx:31
+    effect: "Refreshes state on a five-second timer and on SSE change invalidations."
+    must_preserve: true
+branches:
+  - source_loc: apps/web/src/Front.tsx:23
+    condition: "user is attendance-only"
+    behavior: "Restrict navigation and permissions to Mesas/Cardápio and attendance operations."
+    must_preserve: true
+  - source_loc: apps/web/src/Front.tsx:49
+    condition: "command fails before server confirmation"
+    behavior: "Keep a recoverable pending command and ask the operator to confirm before retrying."
+    must_preserve: true
+  - source_loc: apps/web/src/Front.tsx:28
+    condition: "API returns 401 during refresh"
+    behavior: "Clear authenticated state and show connection/authorization notice."
+    must_preserve: true
+error_paths:
+  - source_loc: apps/web/src/legacy.tsx:58
+    trigger: "fetch timeout or network failure"
+    outcome: "Show Portuguese offline error."
+    contract: "UI error message; no silent retry."
+    must_preserve: true
+  - source_loc: apps/web/src/Front.tsx:54
+    trigger: "server does not confirm a write"
+    outcome: "Mark offline and prevent blind duplicate submission."
+    contract: "UI notice instructing operator to use Conferir envio."
+    must_preserve: true
+concurrency:
+  model: event-loop
+  tx_boundary:
+    source_loc: apps/web/src/Front.tsx:48
+    scope: "Client-side lock prevents concurrent command submission; server owns transaction boundary."
+    isolation: "server-defined"
+    must_preserve: true

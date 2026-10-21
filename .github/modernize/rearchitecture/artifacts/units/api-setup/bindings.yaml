@@ -1,0 +1,27 @@
+unit: api-setup
+bindings:
+  - type: route-declaration
+    name: "@RestController @RequestMapping(\"/api/setup\")"
+    source_loc: apps/api/src/main/java/br/com/bardozico/SetupController.java:14
+    target: SetupController
+    must_appear_in_target: true
+    notes: "Protected setup, certificate, QR and backup routes."
+runtime_config:
+  - key: bar.android-urls
+    source_loc: apps/api/src/main/java/br/com/bardozico/SetupController.java:18
+    source: annotation
+    default_value: ""
+    must_appear_in_target: true
+    notes: "Comma-separated HTTPS addresses exposed to Android setup."
+  - key: bar.public-certificate
+    source_loc: apps/api/src/main/java/br/com/bardozico/SetupController.java:19
+    source: annotation
+    default_value: ""
+    must_appear_in_target: true
+    notes: "Certificate path offered to clients."
+  - key: bar.backup-directory
+    source_loc: apps/api/src/main/java/br/com/bardozico/SetupController.java:19
+    source: annotation
+    default_value: ""
+    must_appear_in_target: true
+    notes: "Local backup worker directory."

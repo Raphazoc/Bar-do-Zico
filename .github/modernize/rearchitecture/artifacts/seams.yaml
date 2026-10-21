@@ -1,0 +1,20 @@
+seams:
+  - id: apps/web/src/TableGuide.tsx:15
+    description: "Web table-guide action crosses into an optional native desktop printer bridge."
+    source: inferred
+    cut_between:
+      migrated_side: web-table-guide
+      frozen_side: desktop-shell
+    protocol_shift: {from: "browser function call", to: "native desktop print operation"}
+    frozen_side_rule: "desktop-shell native printer behavior MUST NOT be refactored by a web-only change; adapt through the existing optional bridge."
+    bridge_points:
+      - at: "TableGuideButton.preview"
+        from_form: "accountId string passed to window.barReceiptPrinter.preview"
+        to_form: "native host opens/prints the matching account guide"
+        mapping_rule: "Pass the exact accountId URL-safe string without changing UUID formatting; browser fallback remains available when the bridge is absent."
+        edge_cases:
+          - "Missing bridge uses browser PDF preview."
+          - "Printer failure must remain visible to the desktop operator."
+        idempotency_retry: "Preview is read-only; repeated calls may re-open the same guide and do not create a payment."
+        fallback: "Use /api/accounts/{id}/guide.pdf in the browser when no native bridge exists."
+        must_preserve: true

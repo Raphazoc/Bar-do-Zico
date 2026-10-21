@@ -1,0 +1,7 @@
+unit: api-identity
+commit: false
+candidate_splits:
+  - id: apps/api/src/main/java/br/com/bardozico/IdentityController.java:20-47
+    drivers: [concern_split]
+    rationale: "Login, operator selection, session inspection, logout, and password change have separate authentication concerns."
+    source_slice: {file: apps/api/src/main/java/br/com/bardozico/IdentityController.java, lines: [20, 47]}

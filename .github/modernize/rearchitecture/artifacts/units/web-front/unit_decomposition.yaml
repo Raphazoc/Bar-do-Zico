@@ -1,0 +1,7 @@
+unit: web-front
+commit: false
+candidate_splits:
+  - id: apps/web/src/Front.tsx:11-266
+    drivers: [concern_split, execution_model_split]
+    rationale: "The root component combines authentication bootstrap, polling/SSE synchronization, navigation state and multiple page renderers."
+    source_slice: {file: apps/web/src/Front.tsx, lines: [11, 266]}

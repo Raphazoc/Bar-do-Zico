@@ -1,0 +1,11 @@
+unit: api-bar
+commit: false
+candidate_splits:
+  - id: apps/api/src/main/java/br/com/bardozico/BarController.java:19-173
+    drivers: [concern_split, data_ownership_split]
+    rationale: "The controller combines state projection, account detail, reports and audit surfaces with different read contracts."
+    source_slice: {file: apps/api/src/main/java/br/com/bardozico/BarController.java, lines: [19, 173]}
+  - id: apps/api/src/main/java/br/com/bardozico/Operations.java:25-431
+    drivers: [concern_split, change_cadence_split]
+    rationale: "Command dispatch contains floor, catalog, order, payment, cash, staff and stock operations with independent change areas."
+    source_slice: {file: apps/api/src/main/java/br/com/bardozico/Operations.java, lines: [25, 431]}

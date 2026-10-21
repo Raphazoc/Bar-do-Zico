@@ -1,0 +1,105 @@
+contracts:
+  - name: authenticated-login
+    unit: api-identity
+    type: rest
+    stability: frozen
+    source_loc: apps/api/src/main/java/br/com/bardozico/IdentityController.java:28
+    contract:
+      method: POST
+      path: /api/login
+      request: "{username?: string, email?: string, password: string}"
+      response: "{ok: true}"
+      error: "401/403 JSON {error:string}; Set-Cookie BAR_SESSION or BAR_TRAINING_SESSION"
+      auth: "public endpoint; session cookie created on success"
+    target_contract:
+      method: "POST /api/login with JSON credentials; return 200 JSON {ok:true} and HttpOnly SameSite=Strict session cookie"
+      notes: "Cookie name varies by bar.training configuration."
+    semantic_divergence:
+      - field: password
+        issue: "Blank username falls back to email; password is never returned in a response."
+        source_loc: apps/api/src/main/java/br/com/bardozico/IdentityController.java:29
+
+  - name: operational-state
+    unit: api-bar
+    type: rest
+    stability: frozen
+    source_loc: apps/api/src/main/java/br/com/bardozico/BarController.java:19
+    contract:
+      method: GET
+      path: /api/state
+      request: "authenticated session"
+      response: "role-filtered state collections: areas, tables, catalog, accounts, items, cash, users and permissions"
+      error: "401 unauthenticated; 403 unauthorized; JSON {error:string}"
+      auth: "authenticated Actor with permission-filtered visibility"
+    target_contract:
+      method: "GET /api/state -> JSON object with existing collection names and visibility rules"
+      notes: "Attendance-only actors receive the reduced state model."
+    semantic_divergence: []
+
+  - name: idempotent-command
+    unit: api-bar
+    type: rest
+    stability: frozen
+    source_loc: apps/api/src/main/java/br/com/bardozico/BarController.java:13
+    contract:
+      method: POST
+      path: /api/commands/{operation}
+      request: "operation-specific JSON body plus Idempotency-Key header"
+      response: "{id: uuid}"
+      error: "400 invalid key/body; 403 missing permission; 404 unknown operation; 409 key reuse mismatch"
+      auth: "authenticated Actor; X-Bar-Request: 1 required for writes"
+    target_contract:
+      method: "POST /api/commands/{operation} with Idempotency-Key; execute atomically and return JSON {id:uuid}"
+      notes: "Command dispatch is transactionally serialized and emits an outbox/audit event."
+    semantic_divergence: []
+
+  - name: realtime-invalidation
+    unit: api-events
+    type: rest
+    stability: must_preserve
+    source_loc: apps/api/src/main/java/br/com/bardozico/LocalEvents.java:16
+    contract:
+      method: GET
+      path: /api/events
+      request: "authenticated session"
+      response: "SSE event name change with {id}; event is invalidation, not business data"
+      error: "connection timeout after 60000ms; client reconnects"
+      auth: "authenticated Actor"
+    target_contract:
+      method: "GET /api/events -> text/event-stream; emit change invalidation events scoped to establishment"
+      notes: "Web client refreshes /api/state after event."
+    semantic_divergence: []
+
+  - name: table-guide-pdf
+    unit: api-table-guide
+    type: rest
+    stability: frozen
+    source_loc: apps/api/src/main/java/br/com/bardozico/TableGuideController.java:15
+    contract:
+      method: GET
+      path: /api/accounts/{id}/guide.pdf
+      request: "account UUID path parameter"
+      response: "application/pdf; Content-Disposition inline; no-store"
+      error: "403 attendance or missing permission; 404 missing account; JSON {error:string}"
+      auth: "authenticated administrator with payment.receive or report.view"
+    target_contract:
+      method: "GET /api/accounts/{id}/guide.pdf -> PDF preserving totals, items, modifiers, adjustments and timezone formatting"
+      notes: "Read transaction uses REPEATABLE_READ."
+    semantic_divergence: []
+
+  - name: android-origin
+    unit: android-attendance-shell
+    type: sdk
+    stability: frozen
+    source_loc: apps/android/app/src/main/java/br/com/bardozico/android/MainActivity.java:43
+    contract:
+      method: "WebView navigation"
+      path: "configured HTTPS origin"
+      request: "origin URL persisted in SharedPreferences"
+      response: "same-origin web application"
+      error: "invalid origin, navigation to another origin, or TLS failure is rejected with visible retry/settings UI"
+      auth: "device user-agent marker BarDoZicoAndroid/{version}"
+    target_contract:
+      method: "Load only validated HTTPS origin; reject mixed content and cross-origin navigation"
+      notes: "Attendance restrictions are enforced by API; user-agent marker does not grant access."
+    semantic_divergence: []

@@ -4,8 +4,9 @@
 
 O **programa do PC é o administrador**: Mesas, Caixa, Funcionários, Estoque,
 Cardápio e Configurações. O **APK é de atendimento**: consultar mesas e cardápio,
-**Abrir mesa**, visualizar o consumo e adicionar produtos à mesa.
+**Adicionar mesa**, **Abrir mesa**, visualizar o consumo e adicionar produtos à mesa.
 Recebimentos, descontos, exclusões e demais tarefas de gestão ficam no PC.
+Atendente e administrador podem criar mesas. Veja [o passo a passo](MESAS-NO-CELULAR.md).
 Os dois continuam abrindo sem tela de login, em operação e treinamento.
 
 No celular não aparece uma opção para virar administrador. Para ajustar o
@@ -55,7 +56,8 @@ interna de atendimento. A escolha voluntária de responsável foi substituída.
 V17 adiciona `users.system_attendant`, com padrão `false` nos cadastros antigos,
 identidade interna sem e-mail/username e unicidade por unidade. A identidade
 interna não aparece como funcionário editável e não redefine pessoas, senhas,
-vendas ou movimentações antigas. Há 17 migrações versionadas; V1–V16 não mudam.
+vendas ou movimentações antigas. Há 18 migrações versionadas; V18 acrescenta
+`table.create` para o cadastro de novas mesas. V1–V17 não mudam.
 O teste `scripts/validar_migracao_v17.py` migra um banco V16 preenchido e
 descartável, comparando os hashes de 36 tabelas e os checksums anteriores.
 

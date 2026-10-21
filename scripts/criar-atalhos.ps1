@@ -7,7 +7,8 @@ if (!(Test-Path -LiteralPath $shortcutDesktop -PathType Container)) { throw 'A p
 $shortcutShell = New-Object -ComObject WScript.Shell
 $shortcutDefinitions = @(
     @{ Name = 'Bar do Zico'; File = 'Iniciar Bar.cmd'; Icon = 'bar-do-zico.ico'; Description = 'Abrir o sistema do Bar do Zico, com o banco local.' },
-    @{ Name = 'Bar do Zico - Treinamento'; File = 'Iniciar Treinamento.cmd'; Icon = 'bar-do-zico-treinamento.ico'; Description = 'Abrir o treinamento com mesas e produtos fictícios em banco separado.' }
+    @{ Name = 'Bar do Zico - Treinamento'; File = 'Iniciar Treinamento.cmd'; Icon = 'bar-do-zico-treinamento.ico'; Description = 'Abrir o treinamento com mesas e produtos fictícios em banco separado.' },
+    @{ Name = 'Bar do Zico - Android de Teste'; File = 'Iniciar Android de Teste.cmd'; Icon = 'bar-do-zico-treinamento.ico'; Description = 'Abrir um celular Android virtual com o APK de treinamento.' }
 )
 try {
     foreach ($shortcutDefinition in $shortcutDefinitions) {

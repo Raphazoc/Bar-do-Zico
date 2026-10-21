@@ -4,7 +4,8 @@ PC: ADMINISTRADOR. CELULAR: ATENDIMENTO.
 No celular: Mesas, Cardapio e Configuracoes do aplicativo.
 Toque em Abrir mesa para iniciar, ou Ver consumo se ja houver atendimento.
 Adicione produtos na tela da mesa.
-Caixa, exclusoes, cadastros e configuracoes de gestao ficam no computador.
+Adicionar mesa: atendente e administrador cadastram mesas novas.
+Edicao/exclusao de mesas, caixa e demais cadastros de gestao ficam no computador.
 O executavel do PC continua na versao 0.2.2, como administrador.
 
 Para praticar: Bar-do-Zico-Treinamento.apk

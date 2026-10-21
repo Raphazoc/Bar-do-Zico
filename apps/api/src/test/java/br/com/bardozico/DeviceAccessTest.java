@@ -26,10 +26,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties={"bar.open-access=true","bar.device-access=true","server.forward-headers-strategy=none"})
 @AutoConfigureMockMvc
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class DeviceAccessTest {
     private static final UUID UNIT=UUID.randomUUID();
     private static final String LOCAL="127.0.0.1",LAN="192.168.0.47";
-    private static final Set<String> ATTENDANCE=Set.of("account.open","order.create");
+    private static final Set<String> ATTENDANCE=Set.of("table.create","account.open","order.create");
     private static final String PASSWORD="Senha-de-teste-dispositivo-123!";
     private final UUID owner=UUID.randomUUID();
     private final String email=owner+"@device.example.test";
@@ -66,6 +67,16 @@ class DeviceAccessTest {
         return UUID.fromString(json.readTree(response.getContentAsString()).path("id").asText());
     }
     private UUID create(String operation,Map<String,Object> body)throws Exception{return create(LOCAL,operation,body);}
+    @Test void onlyTheAdministratorCanRequestAPrintableGuide()throws Exception {
+        UUID area=create("area.save",Map.of("name","Guia "+UUID.randomUUID())),table=create("table.save",Map.of("number",UUID.randomUUID().toString().substring(0,10),"areaId",area));
+        UUID account=create("account.open",Map.of("tableId",table));String path="/api/accounts/"+account+"/guide.pdf";
+        mvc.perform(remote(get(path),LOCAL)).andExpect(status().isOk()).andExpect(content().contentType("application/pdf"));
+        mvc.perform(remote(get(path),LAN).accept("application/pdf").header("Host","127.0.0.1").header("X-Forwarded-For",LOCAL)).andExpect(status().isForbidden());
+        mvc.perform(remote(get(path),LOCAL).accept("application/pdf").header("User-Agent","BarDoZicoAndroid/0.2.3")).andExpect(status().isForbidden());
+        var controller=new TableGuideController(db,false);
+        ApiError forbidden=assertThrows(ApiError.class,()->controller.guide(new Actor(owner,UNIT,null,"Teste",null,null,Set.of("account.open")),account));assertEquals(403,forbidden.status);
+        ApiError foreign=assertThrows(ApiError.class,()->controller.guide(new Actor(owner,UUID.randomUUID(),null,"Teste",null,null,Set.of("report.view")),account));assertEquals(404,foreign.status);
+    }
     private Set<String> permissions(JsonNode user){
         var result=new HashSet<String>();user.path("permissions").forEach(p->result.add(p.asText()));return result;
     }
@@ -85,6 +96,60 @@ class DeviceAccessTest {
     }
     private Map<String,Object> order(UUID account,UUID product){
         return Map.of("accountId",account,"items",List.of(Map.of("productId",product,"quantity","1")));
+    }
+
+    @Test @Order(0) void mobileCanCreateTheFirstTableWithAnAtomicDefaultArea()throws Exception{
+        assertEquals(0,db.queryForObject("SELECT count(*) FROM bar.areas WHERE establishment_id=?",Integer.class,UNIT));
+        String key=UUID.randomUUID().toString();var body=Map.<String,Object>of("number","Primeira");
+        var first=command(LAN,"table.create",body,key).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        var replay=command(LAN,"table.create",body,key).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertEquals(json.readTree(first),json.readTree(replay));
+        UUID table=UUID.fromString(json.readTree(first).path("id").asText());
+        assertEquals(1,db.queryForObject("SELECT count(*) FROM bar.areas WHERE establishment_id=? AND name='Salão' AND active",Integer.class,UNIT));
+        assertEquals("LIVRE",row(state(LOCAL).path("tables"),table).path("status").asText());
+        assertTrue(contains(state(LAN).path("tables"),table));
+        assertEquals(1,db.queryForObject("SELECT count(*) FROM bar.audit_events WHERE establishment_id=? AND action='table.create' AND resource_id=?",Integer.class,UNIT,table));
+        command(LAN,"table.create",Map.of("number","Outro número"),key).andExpect(status().isConflict());
+    }
+
+    @Test void mobileCreatesTableInAnExistingAreaAndCanAttendIt()throws Exception{
+        var f=fixture();String number=UUID.randomUUID().toString().substring(0,12);
+        UUID table=create(LAN,"table.create",Map.of("number",number,"areaId",f.get("area")));
+        var desktop=row(state(LOCAL).path("tables"),table);
+        assertEquals(number,desktop.path("number").asText());assertEquals(f.get("area").toString(),desktop.path("area_id").asText());
+        UUID account=create(LAN,"account.open",Map.of("tableId",table));create(LAN,"order.create",order(account,f.get("product")));
+        assertEquals("10.00",read(remote(get("/api/accounts/"+account),LAN)).path("account").path("total").asText());
+    }
+
+    @Test void createCannotBeUsedToEditOrDeleteTablesOrInjectManagementFields()throws Exception{
+        var f=fixture();var original=db.queryForMap("SELECT * FROM bar.bar_tables WHERE id=?",f.get("table"));
+        for(var extra:List.of(Map.<String,Object>of("id",f.get("table")),Map.<String,Object>of("id",UUID.randomUUID()),Map.<String,Object>of("active",false),Map.<String,Object>of("status","OCUPADA"),Map.<String,Object>of("establishmentId",UUID.randomUUID()))) {
+            var body=new HashMap<String,Object>(Map.of("number","Alteração indevida","areaId",f.get("area")));body.putAll(extra);
+            command(LAN,"table.create",body,UUID.randomUUID().toString()).andExpect(status().isBadRequest());
+        }
+        command(LAN,"table.save",Map.of("id",f.get("table"),"number","Alteração indevida","areaId",f.get("area")),UUID.randomUUID().toString()).andExpect(status().isForbidden());
+        command(LAN,"table.delete",Map.of("tableId",f.get("table")),UUID.randomUUID().toString()).andExpect(status().isForbidden());
+        assertEquals(original,db.queryForMap("SELECT * FROM bar.bar_tables WHERE id=?",f.get("table")));
+    }
+
+    @Test void creationRejectsEmptyLongDuplicateAndInactiveAreaInputs()throws Exception{
+        var f=fixture();
+        for(String number:List.of("","  ","x".repeat(21)))command(LAN,"table.create",Map.of("number",number,"areaId",f.get("area")),UUID.randomUUID().toString()).andExpect(status().isBadRequest());
+        String number=db.queryForObject("SELECT number FROM bar.bar_tables WHERE id=?",String.class,f.get("table"));
+        command(LAN,"table.create",Map.of("number",number,"areaId",f.get("area")),UUID.randomUUID().toString()).andExpect(status().isBadRequest());
+        UUID inactive=create("area.save",Map.of("name","Local inativo "+UUID.randomUUID(),"active",false));
+        command(LAN,"table.create",Map.of("number","Mesa inválida","areaId",inactive),UUID.randomUUID().toString()).andExpect(status().is4xxClientError());
+    }
+
+    @Test void mobileAndComputerCannotCreateTheSameTableConcurrently()throws Exception{
+        var f=fixture();String number=UUID.randomUUID().toString().substring(0,12);
+        try(var pool=Executors.newFixedThreadPool(2)) {
+            var start=new CountDownLatch(1);
+            var mobile=pool.submit(()->{start.await();return command(LAN,"table.create",Map.of("number",number,"areaId",f.get("area")),UUID.randomUUID().toString()).andReturn().getResponse().getStatus();});
+            var desktop=pool.submit(()->{start.await();return command(LOCAL,"table.save",Map.of("number",number,"areaId",f.get("area")),UUID.randomUUID().toString()).andReturn().getResponse().getStatus();});
+            start.countDown();assertEquals(Set.of(200,400),Set.of(mobile.get(20,TimeUnit.SECONDS),desktop.get(20,TimeUnit.SECONDS)));
+        }
+        assertEquals(1,db.queryForObject("SELECT count(*) FROM bar.bar_tables WHERE establishment_id=? AND number=?",Integer.class,UNIT,number));
     }
 
     @Test void localComputerHasAdministrationAndLanGetsAttendanceOnly()throws Exception{
@@ -159,7 +224,7 @@ class DeviceAccessTest {
     }
 
     @Test void attendanceCannotExecuteAdministrativeOrFinancialCommands()throws Exception{
-        for(String operation:List.of("area.save","area.delete","table.save","table.delete","table.authorize","category.save","product.save","product.delete","product.availability","modifier-group.save","modifier.save","product.groups","stock.move","staff.save","staff.delete","user.create","user.active","role.save","terminal.save","cash.open","cash.move","cash.close","cash.correct","payment.receive","payment.reverse","account.adjust","account.close","account.reopen","item.status","item.cancel"))
+        for(String operation:List.of("area.save","area.delete","table.save","table.delete","table.authorize","category.save","product.save","product.delete","product.availability","modifier-group.save","modifier.save","product.groups","stock.move","staff.save","staff.delete","user.create","user.active","role.save","terminal.save","cash.start","cash.open","cash.move","cash.close","cash.correct","payment.receive","payment.reverse","account.adjust","account.close","account.reopen","item.status","item.cancel"))
             command(LAN,operation,Map.of(),UUID.randomUUID().toString()).andExpect(status().isForbidden());
     }
 
@@ -230,6 +295,7 @@ class DeviceAccessTest {
         db.update("INSERT INTO bar.accounts(id,establishment_id,table_id,opened_by) VALUES(?,?,?,?)",account,other,table,staff);
         mvc.perform(remote(get("/api/accounts/"+account),LAN)).andExpect(status().is4xxClientError());
         command(LAN,"account.open",Map.of("tableId",table),UUID.randomUUID().toString()).andExpect(status().is4xxClientError());
+        command(LAN,"table.create",Map.of("number","Outra unidade","areaId",area),UUID.randomUUID().toString()).andExpect(status().is4xxClientError());
         command(LAN,"order.create",Map.of("accountId",account,"items",List.of()),UUID.randomUUID().toString()).andExpect(status().is4xxClientError());
         var mobile=state(LAN);assertFalse(contains(mobile.path("areas"),area));assertFalse(contains(mobile.path("tables"),table));assertFalse(contains(mobile.path("accounts"),account));
     }

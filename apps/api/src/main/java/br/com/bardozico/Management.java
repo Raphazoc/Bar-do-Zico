@@ -109,7 +109,7 @@ class Management {
         var existing=db.queryForList("SELECT id FROM bar.roles WHERE establishment_id=? AND name=?",unit,name);
         if(!existing.isEmpty())return (UUID)existing.getFirst().get("id");
         UUID id=UUID.randomUUID();db.update("INSERT INTO bar.roles(id,establishment_id,name) VALUES(?,?,?)",id,unit,name);
-        var codes=switch(role){case "ATENDIMENTO"->Set.of("account.open","order.create");case "PRODUCAO"->Set.of("production.update");case "CAIXA"->Set.of("account.close","account.adjust","payment.receive","cash.open","cash.close","cash.move","report.view");default->new HashSet<>(db.queryForList("SELECT code FROM bar.permissions",String.class));};
+        var codes=switch(role){case "ATENDIMENTO"->Set.of("table.create","account.open","order.create");case "PRODUCAO"->Set.of("production.update");case "CAIXA"->Set.of("account.close","account.adjust","payment.receive","cash.open","cash.close","cash.move","report.view");default->new HashSet<>(db.queryForList("SELECT code FROM bar.permissions",String.class));};
         for(String code:codes)db.update("INSERT INTO bar.role_permissions(establishment_id,role_id,permission_id) SELECT ?,?,id FROM bar.permissions WHERE code=?",unit,id,code);
         return id;
     }

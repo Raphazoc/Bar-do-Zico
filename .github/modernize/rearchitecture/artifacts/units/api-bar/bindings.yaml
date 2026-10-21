@@ -1,0 +1,21 @@
+unit: api-bar
+bindings:
+  - type: route-declaration
+    name: "@RestController @RequestMapping(\"/api\")"
+    source_loc: apps/api/src/main/java/br/com/bardozico/BarController.java:10
+    target: BarController
+    must_appear_in_target: true
+    notes: "State, accounts, reports and command routes."
+  - type: di-registration
+    name: "@Service"
+    source_loc: apps/api/src/main/java/br/com/bardozico/Operations.java:13
+    target: Operations
+    must_appear_in_target: true
+    notes: "Command application service."
+runtime_config:
+  - key: spring.datasource.url
+    source_loc: apps/api/src/main/resources/application.yml:7
+    source: yaml
+    default_value: "jdbc:postgresql://127.0.0.1:5432/gestao_bar?currentSchema=bar"
+    must_appear_in_target: true
+    notes: "Database used by JDBC state and command operations."

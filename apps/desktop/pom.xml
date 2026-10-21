@@ -3,6 +3,7 @@
   <parent><groupId>br.com.bardozico</groupId><artifactId>gestao-bar</artifactId><version>0.1.0</version><relativePath>../../pom.xml</relativePath></parent>
   <artifactId>bar-desktop</artifactId>
   <dependencies>
+    <dependency><groupId>org.apache.pdfbox</groupId><artifactId>pdfbox</artifactId><version>3.0.8</version></dependency>
     <dependency><groupId>org.openjfx</groupId><artifactId>javafx-controls</artifactId><version>25.0.1</version></dependency>
     <dependency><groupId>org.openjfx</groupId><artifactId>javafx-web</artifactId><version>25.0.1</version></dependency>
   </dependencies>

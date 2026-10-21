@@ -1,0 +1,7 @@
+unit: desktop-shell
+commit: false
+candidate_splits:
+  - id: apps/desktop/src/main/java/br/com/bardozico/desktop/ReceiptPrinter.java:1
+    drivers: [protocol_split, reuse_split]
+    rationale: "Receipt printing is a native integration with a different failure and deployment lifecycle from the desktop window."
+    source_slice: {file: apps/desktop/src/main/java/br/com/bardozico/desktop/ReceiptPrinter.java, lines: [1, 1]}

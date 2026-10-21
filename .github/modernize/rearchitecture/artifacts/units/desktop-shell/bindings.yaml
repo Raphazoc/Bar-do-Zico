@@ -1,0 +1,9 @@
+unit: desktop-shell
+bindings:
+  - type: convention
+    name: "desktop host window and native printer bridge"
+    source_loc: apps/desktop/src/main/java/br/com/bardozico/desktop/BarDesktop.java:1
+    target: "BarDesktop / ReceiptPrinter"
+    must_appear_in_target: true
+    notes: "Windows administrator shell integrates the web UI and receipt printing."
+runtime_config: []

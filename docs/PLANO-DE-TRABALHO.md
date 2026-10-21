@@ -1,5 +1,116 @@
 # Plano de trabalho — Bar do Zico
 
+## Fechamento com totais do sistema e impressão livre (21/10/2026)
+
+Decisão mais recente: retirar a contagem manual do fechamento normal e a etapa
+obrigatória de conferência da guia. Pagamento e **Visualizar / imprimir guia**
+ficam disponíveis juntos. Prévia nativa sem bloquear a janela do caixa; no
+navegador, prévia dentro da própria tela. É possível receber sem imprimir e
+concluir o pagamento com a guia aberta. PC **0.2.4**, APK **0.2.3** sem reinstalar.
+
+**Fechar caixa** envia `useSystemTotals:true`; o servidor calcula as seis formas
+sob lock usando o banco completo, registra os valores e sua origem e preserva
+idempotência e histórico. Sem campos obrigatórios de contagem. Mantém o
+fechamento do turno anterior antes da abertura nova, cujo padrão é R$ 0,00.
+Não há migração nova; V1–V19 permanecem intactas.
+
+Validação: **93 testes Java/API** e **62 casos de interface** aprovados. Incluiu
+fechamento com mais de 500 pagamentos, todas as formas, troco, devoluções,
+entradas/retiradas, reenvio e fechamento concorrente com movimento; pagamento
+parcial sem abrir a guia e finalização com a prévia aberta. Prévia nativa de
+80 mm conferida no executável 0.2.4. Backups de operação e treinamento
+restaurados em bancos temporários para conferência antes da instalação.
+Operação e treinamento atualizados por HTTPS; dados de 36 tabelas de cada banco
+preservados durante a instalação. O executável Windows 0.2.4 foi empacotado no
+mesmo caminho dos atalhos existentes.
+
+## Conferência antes de receber e abertura diária do caixa — V19 (21/10/2026)
+
+Decisão confirmada: exigir conferir e fechar o caixa anterior antes de uma
+nova abertura do programa. Não fechar automaticamente nem preencher contagem.
+`cash.start` é idempotente por janela e marca turnos abertos para conferência.
+Caixa pendente bloqueia recebimentos/movimentos e novas aberturas na API e no
+banco; `cash.close` preserva o fechamento contado. Atualizar a mesma janela
+não reaplica a inicialização. Nova abertura padrão R$ 0,00. Fechar caixa fica
+visível ao lado da seleção, além da aba de fechamento.
+
+No recebimento: **1. Conferir a conta → Visualizar guia antes de receber → Conta
+conferida. Ir para pagamento → 2. Receber pagamento**. Alterações no consumo
+invalidam a conferência; totais esperados são validados sob lock antes da
+gravação. A guia saiu do comprovante posterior; reimpressão histórica permanece.
+Manteve PC administrador, Android atendimento, sem reinstalar o APK.
+
+V19 preserva valores e migrações V1–V18. Verificação em banco preenchido com
+36 tabelas, incluindo um turno aberto e um encerrado. Backups de operação e
+treinamento conferidos por restauração antes da instalação.
+
+Validação: **91 testes Java/API** e **62 casos de interface** aprovados, incluindo
+duas janelas do PC, fechamento obrigatório anterior, reenvio da inicialização,
+abertura concorrente e conta alterada após conferência. Os testes usam bancos
+descartáveis; não criam vendas ou fechamentos nos bancos persistentes.
+V19 instalada em operação e treinamento: os dados anteriores de 36 tabelas em
+cada banco permaneceram intactos. HTTPS e prévia da tela inicial no JavaFX
+conferidos após a atualização. Abrir o treinamento marca apenas seus caixas
+anteriores como pendentes; nenhuma contagem ou fechamento foi inventado.
+
+## Guia da mesa e impressora térmica — 80 mm (21/10/2026)
+
+Decisão confirmada: papel de **80 mm**. O proprietário ainda não tem a impressora.
+Implementados documento canônico pela API, prévia no executável Windows e
+diálogo de impressão pelo driver instalado. Apenas **Imprimir** e **Fechar**;
+documento em memória, sem etapa de salvar. Botões no atendimento, Caixa,
+comprovante e Vendas. Produtos, quantidades, valores unitários e por linha,
+adicionais, ajustes e total vêm do atendimento completo. Nenhum pagamento ou
+encerramento é registrado pela impressão. APK permanece de atendimento.
+
+Executável Windows **0.2.3**, no mesmo local dos atalhos; APK sem reinstalação.
+Sem migração ou alteração de dados comerciais. Validação: **87 testes Java/API**
+e **58 casos de interface** aprovados; prévia nativa conferida no JavaFX e contas
+longas conferidas em 20 páginas de 80 mm. Cancelamentos, adicionais, ajustes e
+suas reversões, pagamentos parciais, devoluções, permissões, histórico de mesa
+excluída e acesso de outra unidade foram verificados. Backups de operação e
+treinamento com restauração de conferência aprovados antes da atualização.
+Operação e treinamento atualizados em HTTPS, com os dados de 34 tabelas de cada
+banco preservados. Prévia nativa também conferida no treinamento por HTTPS.
+Teste físico de papel, margens e corte fica para quando a impressora estiver
+disponível. [Uso e detalhes](IMPRESSAO-DA-MESA.md).
+
+## Seleção de produto por categoria — PC e celular (21/10/2026)
+
+Decisão confirmada: ao adicionar consumo, escolher **Categoria → Produto**.
+A lista fica restrita à categoria ativa escolhida, com produtos disponíveis.
+Trocar a categoria limpa produto, complementos, quantidade e observação;
+categorias vazias não permitem enviar. Uma atualização do catálogo que retira
+o produto escolhido também desabilita o envio. A tela é compartilhada pelo
+executável Windows e pelo APK; não há mudança de banco ou reinstalação do APK.
+
+Validação: 54 casos de interface aprovados nos tamanhos de computador e celular,
+incluindo o perfil do APK. Foram conferidos categoria obrigatória, filtro por
+categoria, produtos indisponíveis/sem estoque, categoria vazia, limpeza de
+complementos e retirada de um produto já selecionado por atualização do catálogo.
+Serviços de operação e treinamento atualizados com a nova interface.
+
+## Cadastro de mesas pelo atendente e administrador — V18 (21/10/2026)
+
+Decisão confirmada: **atendente e administrador criam mesas**. Adicionar mesa
+cadastra uma nova mesa; Abrir mesa inicia seu atendimento. O celular recebe
+cadastro sem edição/exclusão nem administração dos locais. O PC mantém gestão.
+Detalhes e uso: [MESAS-NO-CELULAR.md](MESAS-NO-CELULAR.md).
+
+V18 introduz `table.create` e mantém V1–V17 intactas. O primeiro cadastro pode
+criar Salão automaticamente. Nomes repetidos, local de outra unidade, edição
+disfarçada e cadastros simultâneos são verificados pela API. A atualização é da
+API/interface compartilhada: APK 0.2.3 e executável 0.2.2 permanecem compatíveis.
+
+Verificação: 82 testes Java/API e 50 casos de interface aprovados. Migração
+V17 → V18 conferida em banco preenchido, sem alterar dados de 34 tabelas,
+permissões antigas ou checksums anteriores. Backups de operação e treinamento
+criados e restaurados em bancos temporários antes da aplicação.
+
+Ambiente solicitado para testes do proprietário: Android 15 virtual no Windows,
+com o APK de treinamento e atalho **Bar do Zico - Android de Teste**. Guia:
+[ANDROID-DE-TESTE.md](ANDROID-DE-TESTE.md).
+
 ## Ajuste Android atual — abrir mesa e configurações no menu (0.2.3)
 
 O APK passa para **0.2.3, código 4**, com a mesma assinatura. No atendimento,

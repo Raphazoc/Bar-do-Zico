@@ -1,0 +1,24 @@
+unit: api-table-guide
+side_effects: []
+branches:
+  - source_loc: apps/api/src/main/java/br/com/bardozico/TableGuideController.java:19
+    condition: "actor is attendance-only or lacks payment.receive/report.view"
+    behavior: "Reject printing from the mobile attendance profile."
+    must_preserve: true
+  - source_loc: apps/api/src/main/java/br/com/bardozico/TableGuideController.java:30
+    condition: "account is not found for the establishment"
+    behavior: "Return not found rather than an empty PDF."
+    must_preserve: true
+error_paths:
+  - source_loc: apps/api/src/main/java/br/com/bardozico/TableGuideController.java:30
+    trigger: "Unknown account UUID"
+    outcome: "Return a user-facing missing-attendance error."
+    contract: "HTTP 404 {error:string}"
+    must_preserve: true
+concurrency:
+  model: sync
+  tx_boundary:
+    source_loc: apps/api/src/main/java/br/com/bardozico/TableGuideController.java:16
+    scope: "Account, item, modifier and adjustment reads used to construct one PDF snapshot."
+    isolation: "REPEATABLE_READ"
+    must_preserve: true

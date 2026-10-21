@@ -1,0 +1,7 @@
+unit: api-setup
+commit: false
+candidate_splits:
+  - id: apps/api/src/main/java/br/com/bardozico/SetupController.java:38-84
+    drivers: [concern_split, lifecycle_split]
+    rationale: "Runtime setup inspection, certificate/QR delivery, and backup requests interact with different external resources."
+    source_slice: {file: apps/api/src/main/java/br/com/bardozico/SetupController.java, lines: [38, 84]}

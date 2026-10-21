@@ -81,6 +81,9 @@ reinício completo do Windows sem internet, exercício acompanhado e escolha da
 segunda pasta externa de backups. O emulador não substitui esses testes físicos.
 
 Não estão incluídos emissão fiscal, cobrança bancária/maquininha automática,
-impressão, receitas/ingredientes/complementos de estoque ou confirmação de
+receitas/ingredientes/complementos de estoque ou confirmação de
 pedidos sem contato com o computador. As regras financeiras existentes foram
 preservadas; esta entrega ainda precisa da homologação prática do proprietário.
+
+Atualização de 21/10: [guia de 80 mm](IMPRESSAO-DA-MESA.md) com prévia e
+impressão pelo driver do Windows. O teste físico depende da futura impressora.

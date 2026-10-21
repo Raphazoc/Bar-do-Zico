@@ -1,0 +1,30 @@
+unit: android-attendance-shell
+side_effects:
+  - source_loc: apps/android/app/src/main/java/br/com/bardozico/android/MainActivity.java:20
+    effect: "Persists the selected server address in SharedPreferences."
+    must_preserve: true
+  - source_loc: apps/android/app/src/main/java/br/com/bardozico/android/MainActivity.java:43
+    effect: "Loads the web app with an Android user-agent marker and cookies enabled."
+    must_preserve: true
+branches:
+  - source_loc: apps/android/app/src/main/java/br/com/bardozico/android/MainActivity.java:72
+    condition: "URL is not a valid HTTPS origin"
+    behavior: "Open connection settings instead of loading it."
+    must_preserve: true
+  - source_loc: apps/android/app/src/main/java/br/com/bardozico/android/MainActivity.java:55
+    condition: "TLS, HTTP or main-frame network failure"
+    behavior: "Hide WebView and show retry/settings panel."
+    must_preserve: true
+error_paths:
+  - source_loc: apps/android/app/src/main/java/br/com/bardozico/android/MainActivity.java:65
+    trigger: "Untrusted certificate"
+    outcome: "Cancel SSL navigation and show connection guidance."
+    contract: "No insecure fallback."
+    must_preserve: true
+concurrency:
+  model: event-loop
+  tx_boundary:
+    source_loc: apps/android/app/src/main/java/br/com/bardozico/android/MainActivity.java:18
+    scope: "UI lifecycle and WebView navigation; API transactions remain server-side."
+    isolation: "server-defined"
+    must_preserve: true

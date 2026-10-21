@@ -1,0 +1,30 @@
+unit: web-adjustments
+side_effects:
+  - source_loc: apps/web/src/Adjustments.tsx:7
+    effect: "Sends create/update/delete commands for floor, catalog, stock, cash and staff administration."
+    must_preserve: true
+  - source_loc: apps/web/src/Adjustments.tsx:43
+    effect: "Loads audit history only after explicit user action."
+    must_preserve: true
+branches:
+  - source_loc: apps/web/src/Adjustments.tsx:9
+    condition: "area has tables"
+    behavior: "Require an active destination area before deletion and explain the transfer."
+    must_preserve: true
+  - source_loc: apps/web/src/Adjustments.tsx:43
+    condition: "audit request fails"
+    behavior: "Show an alert and retain the current page."
+    must_preserve: true
+error_paths:
+  - source_loc: apps/web/src/Adjustments.tsx:7
+    trigger: "validation or command failure"
+    outcome: "Form/dialog displays the server error."
+    contract: "role=alert Portuguese message."
+    must_preserve: true
+concurrency:
+  model: event-loop
+  tx_boundary:
+    source_loc: apps/web/src/Adjustments.tsx:7
+    scope: "One UI command delegates atomicity and idempotency to api-bar."
+    isolation: "server-defined"
+    must_preserve: true

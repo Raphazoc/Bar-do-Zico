@@ -16,13 +16,13 @@ class ApiError extends RuntimeException {
 @RestControllerAdvice
 class Errors {
     @ExceptionHandler(ApiError.class) ResponseEntity<?> business(ApiError e) {
-        return ResponseEntity.status(e.status).body(Map.of("error", e.getMessage()));
+        return ResponseEntity.status(e.status).contentType(org.springframework.http.MediaType.APPLICATION_JSON).body(Map.of("error", e.getMessage()));
     }
     @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class,
             IllegalArgumentException.class}) ResponseEntity<?> invalid(Exception e) {
-        return ResponseEntity.badRequest().body(Map.of("error", "Dados inválidos. Confira os campos e tente novamente."));
+        return ResponseEntity.badRequest().contentType(org.springframework.http.MediaType.APPLICATION_JSON).body(Map.of("error", "Dados inválidos. Confira os campos e tente novamente."));
     }
     @ExceptionHandler(DataAccessException.class) ResponseEntity<?> database(DataAccessException e) {
-        return ResponseEntity.status(409).body(Map.of("error", "A operação conflita com o estado atual. Atualize a tela e confira valores, vínculos e permissões."));
+        return ResponseEntity.status(409).contentType(org.springframework.http.MediaType.APPLICATION_JSON).body(Map.of("error", "A operação conflita com o estado atual. Atualize a tela e confira valores, vínculos e permissões."));
     }
 }

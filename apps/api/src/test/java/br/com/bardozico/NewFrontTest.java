@@ -40,6 +40,35 @@ class NewFrontTest {
     }
     BigDecimal balance(UUID product){return db.queryForObject("SELECT stock_quantity FROM bar.products WHERE establishment_id=? AND id=?",BigDecimal.class,UNIT,product);}
     Map<String,Object> order(Map<String,UUID> f,String quantity){return Map.of("accountId",f.get("account"),"items",List.of(Map.of("productId",f.get("product"),"quantity",quantity)));}
+    @Test void tableGuideUsesSnapshotsAdjustmentsNetPaymentsAndNeverChangesTheAccount()throws Exception {
+        var f=fixture("20");UUID group=create("modifier-group.save",Map.of("name","Adicionais "+UUID.randomUUID(),"min",0,"max",2));
+        UUID modifier=create("modifier.save",Map.of("groupId",group,"name","Limão","price","1.00"));create("product.groups",Map.of("productId",f.get("product"),"groupIds",List.of(group)));
+        UUID order=create("order.create",Map.of("accountId",f.get("account"),"items",List.of(Map.of("productId",f.get("product"),"quantity","2.5","modifiers",List.of(Map.of("id",modifier,"quantity","1"))))));
+        create("order.create",order(f,"1"));UUID cancelled=db.queryForObject("SELECT id FROM bar.order_items WHERE order_id<>? AND order_id IN(SELECT id FROM bar.orders WHERE account_id=?)",UUID.class,order,f.get("account"));
+        create("item.cancel",Map.of("itemId",cancelled,"reason","Lançamento incorreto"));
+        create("account.adjust",Map.of("accountId",f.get("account"),"kind","DESCONTO","amount","2.50","reason","Desconto"));
+        create("account.adjust",Map.of("accountId",f.get("account"),"kind","ACRESCIMO","amount","5","reason","Acréscimo"));
+        UUID reversed=create("account.adjust",Map.of("accountId",f.get("account"),"kind","ACRESCIMO","amount","8","reason","Acréscimo a corrigir"));
+        create("account.adjust",Map.of("accountId",f.get("account"),"kind","ACRESCIMO","reversesId",reversed,"reason","Correção do acréscimo"));
+        UUID fee=create("account.adjust",Map.of("accountId",f.get("account"),"kind","SERVICO","rate","10","reason","Serviço a corrigir"));
+        create("account.adjust",Map.of("accountId",f.get("account"),"kind","SERVICO","reversesId",fee,"reason","Correção do serviço"));
+        UUID terminal=create("terminal.save",Map.of("name","Guia "+UUID.randomUUID())),cash=create("cash.open",Map.of("terminalId",terminal,"openingAmount","0"));
+        UUID payment=create("payment.receive",Map.of("accountId",f.get("account"),"sessionId",cash,"method","DINHEIRO","amount","10","tendered","20"));
+        create("payment.reverse",Map.of("paymentId",payment,"sessionId",cash,"method","DINHEIRO","amount","3","reason","Correção"));
+        var before=db.queryForMap("SELECT * FROM bar.account_totals WHERE account_id=?",f.get("account"));BigDecimal stock=balance(f.get("product"));
+        byte[] pdf=mvc.perform(get("/api/accounts/"+f.get("account")+"/guide.pdf")).andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store")).andExpect(content().contentType("application/pdf")).andReturn().getResponse().getContentAsByteArray();
+        try(var doc=org.apache.pdfbox.Loader.loadPDF(pdf)) {
+            String text=new org.apache.pdfbox.text.PDFTextStripper().getText(doc);
+            for(String expected:List.of("2,5 x R$ 11,00","R$ 27,50","Desconto -R$ 2,50","Acréscimo R$ 5,00","TOTAL R$ 30,00","Já recebido (líquido) R$ 7,00","Falta receber R$ 23,00","Limão"))assertTrue(text.contains(expected),text);
+            assertEquals(1,text.split("2,5 x",-1).length-1);
+        }
+        assertEquals(before,db.queryForMap("SELECT * FROM bar.account_totals WHERE account_id=?",f.get("account")));assertEquals(stock,balance(f.get("product")));
+        create("payment.receive",Map.of("accountId",f.get("account"),"sessionId",cash,"method","PIX","amount","23"));
+        String original=db.queryForObject("SELECT table_number_snapshot FROM bar.accounts WHERE id=?",String.class,f.get("account"));create("table.delete",Map.of("tableId",f.get("table")));create("product.delete",Map.of("productId",f.get("product")));
+        pdf=mvc.perform(get("/api/accounts/"+f.get("account")+"/guide.pdf")).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
+        try(var doc=org.apache.pdfbox.Loader.loadPDF(pdf)){String text=new org.apache.pdfbox.text.PDFTextStripper().getText(doc);assertTrue(text.contains(original));assertTrue(text.contains("Conta encerrada"));assertTrue(text.contains("Falta receber R$ 0,00"));}
+        mvc.perform(get("/api/accounts/"+UUID.randomUUID()+"/guide.pdf").accept("application/pdf")).andExpect(status().isNotFound()).andExpect(content().contentType("application/json"));
+    }
     @Test void opensWithoutLoginButRejectsForeignOrigin()throws Exception{
         mvc.perform(get("/api/me")).andExpect(status().isOk()).andExpect(jsonPath("$.openAccess").value(true)).andExpect(jsonPath("$.name").value("Responsável local"));
         mvc.perform(get("/api/state")).andExpect(status().isOk());

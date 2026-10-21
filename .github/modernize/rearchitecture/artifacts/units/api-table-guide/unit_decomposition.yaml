@@ -1,0 +1,7 @@
+unit: api-table-guide
+commit: false
+candidate_splits:
+  - id: apps/api/src/main/java/br/com/bardozico/TableGuideController.java:15-55
+    drivers: [concern_split, reuse_split]
+    rationale: "Read-model assembly, localized formatting, and PDF rendering can evolve at different cadences."
+    source_slice: {file: apps/api/src/main/java/br/com/bardozico/TableGuideController.java, lines: [15, 55]}

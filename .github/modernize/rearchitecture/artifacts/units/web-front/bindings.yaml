@@ -1,0 +1,15 @@
+unit: web-front
+bindings:
+  - type: convention
+    name: "ReactDOM createRoot(document.getElementById('root'))"
+    source_loc: apps/web/src/main.tsx:4
+    target: Front
+    must_appear_in_target: true
+    notes: "Vite/React browser entrypoint."
+  - type: convention
+    name: "EventSource('/api/events')"
+    source_loc: apps/web/src/Front.tsx:31
+    target: Front
+    must_appear_in_target: true
+    notes: "Realtime invalidation binding."
+runtime_config: []

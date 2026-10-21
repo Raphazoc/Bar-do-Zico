@@ -13,6 +13,9 @@ Consulte [perfis do PC e celular](PERFIS-PC-CELULAR.md) para atualizar e conferi
 
 ## Mesas e atendimento
 
+Atendente e administrador podem **Adicionar mesa**, inclusive pelo celular.
+Veja [cadastro de mesas no celular](MESAS-NO-CELULAR.md).
+
 - **Adicionar mesa:** informe o número ou nome. O local Salão é criado se necessário.
 - **Editar / Excluir:** aparecem em cada mesa. Excluir pede confirmação e é
   permanente: o número fica livre para cadastrar outra mesa. As contas antigas
@@ -23,11 +26,20 @@ Consulte [perfis do PC e celular](PERFIS-PC-CELULAR.md) para atualizar e conferi
   ativo, cadastre um antes de excluir.
 - **Abrir mesa** no celular, ou **Abrir atendimento** no PC: inicia o atendimento
   daquela mesa. Em uma mesa já aberta, use **Ver consumo**.
-- **Adicionar produto:** escolha produto, quantidade e opcionais; clique em
-  **Adicionar à mesa**. O consumo e a baixa do estoque são salvos imediatamente.
+- **Adicionar produto:** primeiro escolha a **Categoria**, depois o **Produto**
+  daquela categoria, a quantidade e os opcionais; clique em **Adicionar à mesa**.
+  A sequência é a mesma no PC e no celular. Trocar a categoria limpa o produto,
+  os complementos, a quantidade e a observação anteriores. Sem produtos disponíveis
+  naquela categoria, o envio fica desabilitado. O consumo e a baixa do estoque são
+  salvos imediatamente.
 - **Remover:** fica ao lado de cada produto do consumo. Confirme o motivo para
   corrigir um lançamento. O item removido sai do total e seu histórico é mantido.
 - **Ir para o caixa:** leva a mesma conta para recebimento.
+- **Imprimir guia da mesa** no PC: confira a prévia de 80 mm e use **Imprimir**.
+  No Caixa, use **Visualizar guia antes de receber**, antes do pagamento.
+  Em Vendas, use para reimprimir atendimentos antigos. Não encerra a mesa nem
+  registra pagamento.
+  Veja [como testar sem impressora](IMPRESSAO-DA-MESA.md).
 
 Não há etapa de enviar, preparar ou entregar pedidos. Se houver itens ainda
 não enviados pela versão anterior, eles aparecem separadamente para você
@@ -35,19 +47,36 @@ adicionar à mesa ou remover. Não são registrados automaticamente.
 
 ## Caixa
 
-1. Clique em **Abrir caixa**, escolha o caixa e confira o dinheiro inicial.
+1. Ao abrir uma nova janela do programa, nenhum caixa é aberto automaticamente.
+   Se um anterior ficou aberto, aparecerá **Fechamento pendente**. Use **Ir para
+   o fechamento** ou **Conferir caixa anterior → Conferir e fechar** e clique em
+   **Fechar caixa**, usando os totais que o sistema já calculou. Só depois será
+   liberada a nova abertura.
+2. Clique em **Abrir caixa**, escolha o caixa e confira o dinheiro inicial.
    O valor começa em **R$ 0,00**, editável conforme a gaveta. No primeiro uso,
-   informe também o nome do caixa. Se já estiver aberto, clique em
-   **Conferir caixa aberto → Usar caixa aberto**, sem abrir outro turno.
-2. Em **Contas abertas**, selecione a mesa e confira o consumo.
-3. Use **Aplicar desconto** ou **Adicionar acréscimo**, com valor e motivo, se necessário.
-4. Escolha Dinheiro, Pix, Débito, Crédito, Voucher ou Outro.
-5. Para receber uma parte, marque **Pagamento parcial** e informe o valor.
-6. Em dinheiro, informe o valor entregue. O troco aparece automaticamente.
+   informe também o nome do caixa.
+3. Em **Contas abertas**, selecione a mesa. Use **Aplicar desconto** ou
+   **Adicionar acréscimo**, com valor e motivo, se necessário.
+4. Na área **Pagamento**, **Visualizar / imprimir guia** e os campos para receber
+   ficam disponíveis juntos. Você pode imprimir para o cliente conferir ou
+   receber diretamente, sem uma confirmação intermediária.
+5. Escolha Dinheiro, Pix, Débito, Crédito, Voucher ou Outro. A prévia não bloqueia
+   o pagamento: no PC, ela abre em uma janela separada; no navegador, fica na tela.
+6. Para receber uma parte, marque **Pagamento parcial** e informe o valor.
+   Em dinheiro, informe o valor entregue. O troco aparece automaticamente.
 7. Clique em **Receber e finalizar mesa**. A mesa só será liberada quando quitada.
    Uma conta zerada pode ser encerrada por **Finalizar mesa quitada**.
 8. Em **Movimentações**, registre entradas, retiradas e correções com motivo.
-9. Em **Fechamento de caixa**, conte todas as formas e clique em **Fechar caixa**.
+9. Use **Fechar caixa**, próximo da seleção do caixa, ou a aba **Fechamento de
+   caixa**. As seis formas e o **Total do fechamento** já aparecem calculados.
+   Basta clicar em **Fechar caixa**. O histórico identifica que os valores vieram
+   do sistema; não é necessário digitar uma contagem manual.
+
+Fechar a janela do programa não cria um fechamento.
+Na próxima abertura, o caixa anterior exigirá conferência, mesmo que seja no
+mesmo dia. Atualizar a tela ou reconectar na mesma janela conserva a abertura
+atual, sem duplicar o caixa. Se abrir outra janela do PC, todas passam a respeitar
+o fechamento pendente. O Android não inicia nem fecha caixas.
 
 Pix e cartões registram pagamentos já confirmados; não cobram automaticamente
 pela maquininha ou banco. O comprovante é simples, não fiscal. Os relatórios
@@ -55,6 +84,11 @@ ficam na opção **Vendas** dentro de Caixa. Correções mantêm o histórico an
 O padrão zero não altera aberturas, recebimentos nem saldos anteriores.
 
 ## Valores do caixa e vendas
+
+**Caixa em uso** mostra somente caixas abertos ou com fechamento pendente.
+As aberturas antigas já encerradas não aparecem nessa seleção. Sem caixa aberto,
+use **Abrir caixa**. Ao fechar, o resultado permanece na tela para conferência
+até você sair dessa seção; os registros anteriores continuam guardados.
 
 Abaixo de **Caixa em uso**, confira **Dinheiro em caixa** (o saldo previsto na
 gaveta) e **Recebido em vendas** (todas as formas de pagamento, descontadas as
@@ -130,7 +164,7 @@ o aplicativo enquanto houver uma conferência pendente.
 
 Consulte [Instalar o aplicativo Android](../output/android/COMO-INSTALAR.md).
 Instale o APK **0.2.3 (código 4)** por cima da versão anterior. O PC continua com
-o executável **0.2.2**, como administrador. No celular, **Menu** abre **Mesas,
+o executável **0.2.4**, como administrador e com impressão da guia. No celular, **Menu** abre **Mesas,
 Cardápio e Configurações**. Em Mesas, toque em **Abrir mesa** para iniciar, ou
 **Ver consumo** para continuar; adicione produtos pelo atendimento.
 Caixa, exclusões e cadastros ficam no PC.

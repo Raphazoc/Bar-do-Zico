@@ -17,6 +17,7 @@ import javafx.animation.PauseTransition;
 import javafx.util.Duration;
 
 public class BarDesktop extends Application {
+    private ReceiptPrinter receiptPrinter;
     private static final String FOREST = "#173f35";
     private static final String CREAM = "#f5f4ee";
     private static final String GOLD = "#c8a76b";
@@ -39,6 +40,8 @@ public class BarDesktop extends Application {
             System.setProperty("javax.net.ssl.trustStorePassword","changeit");
         }
         var web=new WebView();web.setContextMenuEnabled(false);
+        boolean receiptSmoke=getParameters().getRaw().stream().anyMatch(p->p.startsWith("--receipt-smoke-test="));
+        receiptPrinter=new ReceiptPrinter(stage,web.getEngine(),origin,receiptSmoke);
         var message=new Label("Conectando ao serviço do bar…");
         message.setWrapText(true);
         message.setStyle("-fx-text-fill: #40544c; -fx-font-size: 12px;");
@@ -94,9 +97,18 @@ public class BarDesktop extends Application {
         });
         web.getEngine().getLoadWorker().stateProperty().addListener((o,old,state)->{
             if(state==Worker.State.SUCCEEDED) {
+                ((netscape.javascript.JSObject)web.getEngine().executeScript("window")).setMember("barReceiptPrinter",receiptPrinter);
                 unavailable.setVisible(false);web.setVisible(true);
                 status.setFill(Color.web("#398161"));
                 message.setText("Conectado ao computador do bar. Fechar esta janela mantém o serviço ativo.");
+                if(receiptSmoke) {
+                    var delay=new PauseTransition(Duration.seconds(4));
+                    delay.setOnFinished(e->{
+                        String id=java.util.UUID.fromString(getParameters().getRaw().stream().filter(p->p.startsWith("--receipt-smoke-test=")).findFirst().orElseThrow().substring("--receipt-smoke-test=".length())).toString();
+                        web.getEngine().executeScript("window.barReceiptPrinter.preview('"+id+"')");
+                    });
+                    delay.play();
+                }
                 if(getParameters().getRaw().contains("--smoke-test")) {
                     var delay=new PauseTransition(Duration.seconds(4));
                     delay.setOnFinished(e->{

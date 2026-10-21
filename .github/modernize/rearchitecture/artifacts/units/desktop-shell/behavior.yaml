@@ -1,0 +1,19 @@
+unit: desktop-shell
+side_effects:
+  - source_loc: apps/desktop/src/main/java/br/com/bardozico/desktop/ReceiptPrinter.java:1
+    effect: "Bridges account guide preview to the native Windows receipt printer."
+    must_preserve: true
+branches: []
+error_paths:
+  - source_loc: apps/desktop/src/main/java/br/com/bardozico/desktop/BarDesktop.java:1
+    trigger: "Embedded UI or printer bridge unavailable"
+    outcome: "Surface the host failure instead of silently marking a print successful."
+    contract: "Desktop-visible error."
+    must_preserve: true
+concurrency:
+  model: event-loop
+  tx_boundary:
+    source_loc: apps/desktop/src/main/java/br/com/bardozico/desktop/BarDesktop.java:1
+    scope: "Host lifecycle and printer invocation; account data remains API-owned."
+    isolation: "server-defined"
+    must_preserve: true

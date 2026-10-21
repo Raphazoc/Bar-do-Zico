@@ -1,0 +1,33 @@
+unit: api-identity
+bindings:
+  - type: route-declaration
+    name: "@RestController @RequestMapping(\"/api\")"
+    source_loc: apps/api/src/main/java/br/com/bardozico/IdentityController.java:9
+    target: IdentityController
+    must_appear_in_target: true
+    notes: "Spring MVC controller exposes identity routes."
+  - type: di-registration
+    name: "IdentityController constructor injection"
+    source_loc: apps/api/src/main/java/br/com/bardozico/IdentityController.java:12
+    target: IdentityController
+    must_appear_in_target: true
+    notes: "Injects Identity, JdbcTemplate, DeviceAccess and configuration values."
+runtime_config:
+  - key: bar.secure-cookie
+    source_loc: apps/api/src/main/java/br/com/bardozico/IdentityController.java:12
+    source: annotation
+    default_value: ""
+    must_appear_in_target: true
+    notes: "Controls Secure cookie attribute."
+  - key: bar.training
+    source_loc: apps/api/src/main/java/br/com/bardozico/IdentityController.java:12
+    source: annotation
+    default_value: "false"
+    must_appear_in_target: true
+    notes: "Selects training cookie name and mode."
+  - key: bar.open-access
+    source_loc: apps/api/src/main/java/br/com/bardozico/IdentityController.java:12
+    source: annotation
+    default_value: "false"
+    must_appear_in_target: true
+    notes: "Enables operator selection without login when allowed."

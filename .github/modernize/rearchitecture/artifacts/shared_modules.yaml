@@ -1,0 +1,66 @@
+modules:
+  - name: api-actor-security
+    kind: base-class
+    source_loc: "apps/api/src/main/java/br/com/bardozico/Actor.java:6"
+    used_by_units: [api-identity, api-bar, api-setup, api-events, api-table-guide]
+    fields:
+      - name: id
+        type: java.util.UUID
+      - name: unit
+        type: java.util.UUID
+      - name: session
+        type: java.util.UUID
+      - name: permissions
+        type: java.util.Set<java.lang.String>
+      - name: attendanceOnly
+        type: boolean
+    god_class: false
+    split_candidate: false
+    migration_strategy: wrap
+    notes: "Authenticated actor context shared by API entrypoints; preserve permission and attendance distinctions."
+
+  - name: api-database-contract
+    kind: store
+    source_loc: "apps/api/src/main/resources/db/migration/V1__identity_and_authorization.sql:5"
+    used_by_units: [api-bar, api-table-guide]
+    fields:
+      - name: establishment_id
+        type: uuid
+      - name: accounts
+        type: bar.accounts
+      - name: orders
+        type: bar.orders
+      - name: order_items
+        type: bar.order_items
+      - name: payments
+        type: bar.payments
+      - name: users
+        type: bar.users
+    god_class: false
+    split_candidate: false
+    migration_strategy: wrap
+    notes: "JDBC reads and Flyway migrations are the persisted contract; no JPA entity layer is present."
+
+  - name: web-ui-primitives
+    kind: utility
+    source_loc: "apps/web/src/legacy.tsx:1"
+    used_by_units: [web-front, web-adjustments]
+    fields:
+      - name: api
+        type: "fetch helper"
+      - name: Form
+        type: React component
+      - name: DataTable
+        type: React component
+      - name: SimpleDialog
+        type: React component
+      - name: money
+        type: function
+      - name: date
+        type: function
+      - name: names
+        type: "Record<string,string>"
+    god_class: true
+    split_candidate: true
+    migration_strategy: split
+    notes: "Shared UI helper file combines transport, formatting, forms, dialogs, and tables; candidate for design-time separation."

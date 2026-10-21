@@ -1,0 +1,31 @@
+user_intent:
+  raw_request: "FAZ PRA MIM UM MAPA DO PROJETO"
+  inferred_acceptance:
+    - "Document the existing project structure, runtime stack, entrypoints, contracts and data model."
+    - "Do not change application behavior or source code."
+  cleanup_required: false
+strategy: phased
+runtime_reachable:
+  - apps/api/src/main/java/br/com/bardozico/BarApplication.java
+  - apps/api/src/main/resources/application.yml
+  - apps/web/src/main.tsx
+  - apps/android/app/src/main/java/br/com/bardozico/android/MainActivity.java
+  - apps/desktop/src/main/java/br/com/bardozico/desktop/BarDesktop.java
+must_rewrite: []
+copy_as_is:
+  - apps/api
+  - apps/web
+  - apps/android
+  - apps/desktop
+legacy_allowed_to_remain:
+  - apps/web/dist
+  - apps/web/node_modules
+  - apps/android/build
+  - apps/android/.gradle
+  - output
+defer_cleanup:
+  - "Generated build outputs and dependency directories are excluded from the source map; clean them only as a separate repository-hygiene task."
+full_rewrite_reason: null
+implementation_rule: >
+  This is an analysis-only request. No implementation scope is authorized.
+  Source anchors in unit_graph.yaml are evidence of behavior and are not rewrite targets.

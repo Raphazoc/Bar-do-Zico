@@ -18,13 +18,13 @@ class Operations {
     private final Management management;
     private static final Set<String> METHODS=Set.of("DINHEIRO","PIX","DEBITO","CREDITO","VOUCHER","OUTRO");
     private static final Map<String,String> PERMISSION=Map.ofEntries(
-        Map.entry("area.save","table.manage"),Map.entry("area.delete","table.manage"),Map.entry("table.save","table.manage"),Map.entry("table.delete","table.manage"),Map.entry("table.authorize","table.manage"),
+        Map.entry("area.save","table.manage"),Map.entry("area.delete","table.manage"),Map.entry("table.create","table.create"),Map.entry("table.save","table.manage"),Map.entry("table.delete","table.manage"),Map.entry("table.authorize","table.manage"),
         Map.entry("category.save","catalog.manage"),Map.entry("product.save","catalog.manage"),Map.entry("product.delete","catalog.manage"),
         Map.entry("modifier-group.save","catalog.manage"),Map.entry("modifier.save","catalog.manage"),Map.entry("product.groups","catalog.manage"),
         Map.entry("account.open","account.open"),Map.entry("account.close","account.close"),Map.entry("account.reopen","account.reopen"),
         Map.entry("account.adjust","account.adjust"),Map.entry("order.create","order.create"),Map.entry("item.status","production.update"),
         Map.entry("item.cancel","order.cancel"),Map.entry("terminal.save","cash.open"),Map.entry("cash.open","cash.open"),
-        Map.entry("cash.move","cash.move"),Map.entry("cash.close","cash.close"),Map.entry("cash.correct","cash.close"),
+        Map.entry("cash.start","cash.open"),Map.entry("cash.move","cash.move"),Map.entry("cash.close","cash.close"),Map.entry("cash.correct","cash.close"),
         Map.entry("payment.receive","payment.receive"),Map.entry("payment.reverse","payment.reverse"),Map.entry("user.create","user.manage"),
         Map.entry("user.active","user.manage"),Map.entry("staff.delete","user.manage"),Map.entry("staff.save","user.manage"),Map.entry("role.save","user.manage"),Map.entry("stock.move","stock.adjust"),Map.entry("product.availability","catalog.manage"));
     Operations(JdbcTemplate db,Identity identity,ObjectMapper json,Argon2PasswordEncoder encoder,Management management) { this.db=db;this.identity=identity;this.json=json;this.encoder=encoder;this.management=management; }
@@ -52,8 +52,10 @@ class Operations {
             if(db.queryForObject("SELECT count(*) FROM bar.users u WHERE u.establishment_id=? AND u.id=? AND u.active AND u.deleted_at IS NULL AND EXISTS (SELECT 1 FROM bar.user_roles ur JOIN bar.role_permissions rp ON (rp.establishment_id,rp.role_id)=(ur.establishment_id,ur.role_id) JOIN bar.permissions p ON p.id=rp.permission_id WHERE ur.establishment_id=u.establishment_id AND ur.user_id=u.id AND p.code='user.manage')",Integer.class,a.unit(),a.id())==0)
                 throw new ApiError(403,"Este responsável não está mais disponível. Reconecte o programa.");
         }
-        if(Set.of("area.save","area.delete","table.save").contains(operation))
+        if(Set.of("area.save","area.delete","table.save","table.create").contains(operation))
             db.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",a.unit()+":floor-management");
+        if(Set.of("cash.start","cash.open").contains(operation))
+            db.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",a.unit()+":cash-opening");
         UUID id=execute(a,operation,b);
         if(staffChange) management.requireAdministrator(a.unit());
         String result="{\"id\":\""+id+"\"}";
@@ -83,10 +85,27 @@ class Operations {
                 db.update("DELETE FROM bar.areas WHERE establishment_id=? AND id=?",u,id);
             }
             case "area.save" -> save(b,"areas",id,u,Map.of("name",text(b,"name",80),"active",b.path("active").asBoolean(true)));
-            case "table.save" -> {
-                one("SELECT id FROM bar.areas WHERE establishment_id=? AND id=? AND active FOR SHARE",u,uuid(b,"areaId"));
-                boolean active=true;
+            case "table.save","table.create" -> {
+                boolean creating=op.equals("table.create");
+                if(creating) {
+                    var fields=b.fieldNames();
+                    while(fields.hasNext()) if(!Set.of("number","areaId").contains(fields.next()))
+                        throw ApiError.bad("Para criar uma mesa, informe apenas o número ou nome e o local.");
+                }
                 String number=text(b,"number",20);
+                UUID area;
+                if(creating&&!b.hasNonNull("areaId")) {
+                    var available=db.queryForList("SELECT id FROM bar.areas WHERE establishment_id=? AND active ORDER BY name,id LIMIT 1",UUID.class,u);
+                    if(!available.isEmpty())area=available.getFirst();
+                    else {
+                        if(db.queryForObject("SELECT count(*) FROM bar.areas WHERE establishment_id=?",Integer.class,u)>0)
+                            throw ApiError.bad("Peça ao administrador para ativar ou cadastrar um local no computador.");
+                        area=UUID.randomUUID();
+                        db.update("INSERT INTO bar.areas(id,establishment_id,name) VALUES(?,?,'Salão')",area,u);
+                    }
+                } else area=uuid(b,"areaId");
+                one("SELECT id FROM bar.areas WHERE establishment_id=? AND id=? AND active FOR SHARE",u,area);
+                boolean active=true;
                 db.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",u+":table-number:"+number);
                 if(b.hasNonNull("active") && (!b.path("active").isBoolean() || !b.path("active").asBoolean())) throw ApiError.bad("Para retirar a mesa do salão, use Excluir mesa.");
                 if(b.hasNonNull("id")) {
@@ -96,7 +115,7 @@ class Operations {
                 }
                 var repeated=db.queryForList("SELECT active FROM bar.bar_tables WHERE establishment_id=? AND number=? AND id<>?",u,number,id);
                 if(!repeated.isEmpty()) throw ApiError.bad("Já existe uma mesa com este número. Escolha outro número.");
-                save(b,"bar_tables",id,u,Map.of("area_id",uuid(b,"areaId"),"number",number,"active",active));
+                save(b,"bar_tables",id,u,Map.of("area_id",area,"number",number,"active",active));
             }
             case "table.delete" -> {
                 id=uuid(b,"tableId");
@@ -190,7 +209,13 @@ class Operations {
                 if(to.equals("CANCELADO")) recalculateService(a,account);
             }
             case "terminal.save" -> save(b,"cash_terminals",id,u,Map.of("name",text(b,"name",100),"active",b.path("active").asBoolean(true)));
+            case "cash.start" -> {
+                if(!b.isObject()||!b.isEmpty())throw ApiError.bad("A inicialização do caixa não recebe valores ou contagens.");
+                db.update("UPDATE bar.cash_sessions SET review_required=true,version=version+1 WHERE establishment_id=? AND status='ABERTA' AND NOT review_required",u);
+            }
             case "cash.open" -> {
+                if(db.queryForObject("SELECT count(*) FROM bar.cash_sessions WHERE establishment_id=? AND status='ABERTA' AND review_required",Integer.class,u)>0)
+                    throw new ApiError(409,"Confira e feche o caixa anterior antes de fazer uma nova abertura.");
                 UUID terminal=uuid(b,"terminalId");one("SELECT id FROM bar.cash_terminals WHERE establishment_id=? AND id=? AND active FOR UPDATE",u,terminal);
                 if(db.queryForObject("SELECT count(*) FROM bar.cash_sessions WHERE establishment_id=? AND terminal_id=? AND status='ABERTA'",Integer.class,u,terminal)>0)
                     throw new ApiError(409,"Este caixa já está aberto. Selecione o caixa em uso para conferir os valores.");
@@ -202,6 +227,11 @@ class Operations {
             }
             case "payment.receive" -> {
                 UUID session=uuid(b,"sessionId"),account=uuid(b,"accountId");cash(a,session);var acc=account(a,account,true);
+                if(b.has("expectedBalance")||b.has("expectedTotal")) {
+                    var totals=one("SELECT total,balance FROM bar.account_totals WHERE establishment_id=? AND account_id=?",u,account);
+                    if(amount(b,"expectedBalance",false).compareTo((BigDecimal)totals.get("balance"))!=0||amount(b,"expectedTotal",false).compareTo((BigDecimal)totals.get("total"))!=0)
+                        throw new ApiError(409,"O consumo ou o valor a receber mudou. Confira novamente a guia antes de registrar o pagamento.");
+                }
                 BigDecimal applied=amount(b,"amount",true),tendered=b.hasNonNull("tendered")?amount(b,"tendered",true):applied;
                 String method=choice(b,"method",METHODS);
                 if(tendered.compareTo(applied)<0 || (!method.equals("DINHEIRO") && tendered.compareTo(applied)!=0)) throw ApiError.bad("Valor entregue/troco inválido para a forma escolhida.");
@@ -218,18 +248,23 @@ class Operations {
             }
             case "cash.close","cash.correct" -> {
                 UUID session=uuid(b,"sessionId");
-                if(op.equals("cash.close")) cash(a,session);else {
+                if(op.equals("cash.close")) cash(a,session,true);else {
                     var cash=one("SELECT * FROM bar.cash_sessions WHERE establishment_id=? AND id=? FOR UPDATE",u,session);
                     if(!"FECHADA".equals(cash.get("status"))) throw ApiError.bad("Caixa ainda não fechado.");
                 }
                 UUID corrects=op.equals("cash.correct")?uuid(b,"correctsId"):null;
-                db.update("INSERT INTO bar.cash_closures(id,establishment_id,cash_session_id,closed_by,corrects_id,reason) VALUES(?,?,?,?,?,?)",id,u,session,a.id(),corrects,corrects==null?null:text(b,"reason",1000));
-                var counted=b.path("counted");if(!counted.isObject() || counted.size()!=6) throw ApiError.bad("Informe as seis formas de pagamento.");
-                for(var row:db.queryForList("SELECT method,expected_amount FROM bar.cash_session_totals WHERE establishment_id=? AND cash_session_id=?",u,session)) {
+                boolean systemTotals=b.path("useSystemTotals").asBoolean(false);
+                if(b.has("useSystemTotals")&&!b.path("useSystemTotals").isBoolean())throw ApiError.bad("Escolha uma forma válida de fechar o caixa.");
+                if(systemTotals&&(!op.equals("cash.close")||b.has("counted")))throw ApiError.bad("O fechamento pelo sistema não recebe contagem manual.");
+                var totals=db.queryForList("SELECT method,expected_amount FROM bar.cash_session_totals WHERE establishment_id=? AND cash_session_id=?",u,session);
+                if(systemTotals&&totals.stream().anyMatch(row->((BigDecimal)row.get("expected_amount")).signum()<0))throw ApiError.bad("Há saldo negativo em uma forma de pagamento. Confira as movimentações antes de fechar o caixa.");
+                db.update("INSERT INTO bar.cash_closures(id,establishment_id,cash_session_id,closed_by,corrects_id,reason) VALUES(?,?,?,?,?,?)",id,u,session,a.id(),corrects,systemTotals?"Fechamento com valores calculados pelo sistema.":corrects==null?null:text(b,"reason",1000));
+                var counted=b.path("counted");if(!systemTotals&&(!counted.isObject() || counted.size()!=6)) throw ApiError.bad("Informe as seis formas de pagamento.");
+                for(var row:totals) {
                     String method=(String)row.get("method");
-                    db.update("INSERT INTO bar.cash_closure_lines(establishment_id,closure_id,method,expected_amount,counted_amount) VALUES(?,?,?,?,?)",u,id,method,row.get("expected_amount"),amount(counted,method,false));
+                    db.update("INSERT INTO bar.cash_closure_lines(establishment_id,closure_id,method,expected_amount,counted_amount) VALUES(?,?,?,?,?)",u,id,method,row.get("expected_amount"),systemTotals?row.get("expected_amount"):amount(counted,method,false));
                 }
-                if(op.equals("cash.close")) db.update("UPDATE bar.cash_sessions SET status='FECHADA',closed_at=CURRENT_TIMESTAMP,version=version+1 WHERE establishment_id=? AND id=?",u,session);
+                if(op.equals("cash.close")) db.update("UPDATE bar.cash_sessions SET status='FECHADA',review_required=false,closed_at=CURRENT_TIMESTAMP,version=version+1 WHERE establishment_id=? AND id=?",u,session);
             }
             case "user.create" -> {
                 String name=text(b,"name",150),username=optional(b,"username",40),email=optional(b,"email",254);
@@ -251,7 +286,7 @@ class Operations {
                 if(username!=null && db.queryForObject("SELECT count(*) FROM bar.users WHERE establishment_id=? AND username=?",Integer.class,u,username)>0) throw new ApiError(409,"Este nome de usuário já está em uso. Escolha outro, por exemplo: joao2.");
                 if(email!=null && db.queryForObject("SELECT count(*) FROM bar.users WHERE establishment_id=? AND email=?",Integer.class,u,email)>0) throw new ApiError(409,"Este e-mail já está cadastrado. Use outro acesso ou ative o cadastro existente.");
                 Set<String> codes=switch(role) {
-                    case "ATENDIMENTO" -> Set.of("account.open","order.create");
+                    case "ATENDIMENTO" -> Set.of("table.create","account.open","order.create");
                     case "PRODUCAO" -> Set.of("production.update");
                     case "CAIXA" -> Set.of("account.close","payment.receive","cash.open","cash.close","report.view");
                     default -> new HashSet<>(db.queryForList("SELECT code FROM bar.permissions",String.class));
@@ -349,8 +384,12 @@ class Operations {
         if(table==null || db.queryForObject("SELECT count(*) FROM bar.table_authorizations WHERE establishment_id=? AND table_id=? AND user_id=? AND revoked_at IS NULL",Integer.class,a.unit(),table,a.id())==0) throw new ApiError(403,"Você não está autorizado a atender esta mesa.");
     }
     private void cash(Actor a,UUID id) {
+        cash(a,id,false);
+    }
+    private void cash(Actor a,UUID id,boolean closing) {
         var row=one("SELECT * FROM bar.cash_sessions WHERE establishment_id=? AND id=? FOR UPDATE",a.unit(),id);
         if(!"ABERTA".equals(row.get("status"))) throw ApiError.bad("Este caixa está fechado.");
+        if(!closing&&Boolean.TRUE.equals(row.get("review_required")))throw new ApiError(409,"Este caixa tem fechamento pendente. Confira os valores e feche antes de abrir o caixa do dia.");
     }
     private void requireZero(UUID u,UUID account) {
         if(((BigDecimal)one("SELECT balance FROM bar.account_totals WHERE establishment_id=? AND account_id=?",u,account).get("balance")).signum()!=0) throw ApiError.bad("A conta precisa estar quitada.");

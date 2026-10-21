@@ -1,0 +1,39 @@
+unit: api-bar
+side_effects:
+  - source_loc: apps/api/src/main/java/br/com/bardozico/Operations.java:25
+    effect: "Persists idempotency records, command results, audit events and business writes in one command transaction."
+    must_preserve: true
+  - source_loc: apps/api/src/main/java/br/com/bardozico/BarController.java:19
+    effect: "Returns permission-filtered operational state for administrator or attendance-only actors."
+    must_preserve: true
+branches:
+  - source_loc: apps/api/src/main/java/br/com/bardozico/BarController.java:21
+    condition: "actor.attendanceOnly()"
+    behavior: "Return the reduced mobile state and only active tables/products/accounts."
+    must_preserve: true
+  - source_loc: apps/api/src/main/java/br/com/bardozico/Operations.java:28
+    condition: "idempotency key already exists with a different request hash"
+    behavior: "Reject reuse with conflict; never execute the second payload."
+    must_preserve: true
+  - source_loc: apps/api/src/main/java/br/com/bardozico/BarController.java:148
+    condition: "report period is invalid or longer than one year"
+    behavior: "Reject report request with a validation message."
+    must_preserve: true
+error_paths:
+  - source_loc: apps/api/src/main/java/br/com/bardozico/Operations.java:29
+    trigger: "Unknown operation or missing permission"
+    outcome: "Return 404 or 403 JSON error."
+    contract: "HTTP 404/403 {error:string}"
+    must_preserve: true
+  - source_loc: apps/api/src/main/java/br/com/bardozico/BarController.java:82
+    trigger: "Account is not visible to the actor"
+    outcome: "Reject access to account details."
+    contract: "HTTP 403 {error:string}"
+    must_preserve: true
+concurrency:
+  model: sync
+  tx_boundary:
+    source_loc: apps/api/src/main/java/br/com/bardozico/Operations.java:25
+    scope: "Advisory lock, idempotency record, command execution, event/audit persistence and result update."
+    isolation: "database transaction; explicit row/advisory locks for contested resources"
+    must_preserve: true

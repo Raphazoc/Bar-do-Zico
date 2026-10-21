@@ -1,0 +1,35 @@
+unit: api-setup
+side_effects:
+  - source_loc: apps/api/src/main/java/br/com/bardozico/SetupController.java:72
+    effect: "Writes an atomic backup request JSON file for the local backup worker."
+    must_preserve: true
+  - source_loc: apps/api/src/main/java/br/com/bardozico/SetupController.java:59
+    effect: "Generates an SVG QR code for a validated configured HTTPS address."
+    must_preserve: true
+branches:
+  - source_loc: apps/api/src/main/java/br/com/bardozico/SetupController.java:25
+    condition: "address has credentials, path/query/fragment, unsupported scheme or unsupported port"
+    behavior: "Exclude the address from available setup addresses."
+    must_preserve: true
+  - source_loc: apps/api/src/main/java/br/com/bardozico/SetupController.java:70
+    condition: "backup directory unavailable or backups disabled"
+    behavior: "Return 503 or 409 rather than creating a request."
+    must_preserve: true
+error_paths:
+  - source_loc: apps/api/src/main/java/br/com/bardozico/SetupController.java:60
+    trigger: "QR address is not in the configured allowlist"
+    outcome: "Reject QR generation."
+    contract: "HTTP 400 {error:string}"
+    must_preserve: true
+  - source_loc: apps/api/src/main/java/br/com/bardozico/SetupController.java:65
+    trigger: "Certificate is missing or too large"
+    outcome: "Report certificate unavailable."
+    contract: "HTTP 404 {error:string}"
+    must_preserve: true
+concurrency:
+  model: sync
+  tx_boundary:
+    source_loc: apps/api/src/main/java/br/com/bardozico/SetupController.java:38
+    scope: "Read-only setup counts and backup status; backup request uses atomic filesystem move."
+    isolation: "database read-only plus filesystem atomic move"
+    must_preserve: true

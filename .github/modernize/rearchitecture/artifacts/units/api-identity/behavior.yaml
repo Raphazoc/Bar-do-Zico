@@ -1,0 +1,30 @@
+unit: api-identity
+side_effects:
+  - source_loc: apps/api/src/main/java/br/com/bardozico/IdentityController.java:30
+    effect: "Creates or refreshes a persisted application session and sends a session cookie."
+    must_preserve: true
+  - source_loc: apps/api/src/main/java/br/com/bardozico/IdentityController.java:44
+    effect: "Revokes the authenticated session on logout or password change."
+    must_preserve: true
+branches:
+  - source_loc: apps/api/src/main/java/br/com/bardozico/IdentityController.java:28
+    condition: "username is blank"
+    behavior: "Use email as the login identifier."
+    must_preserve: true
+  - source_loc: apps/api/src/main/java/br/com/bardozico/IdentityController.java:22
+    condition: "open access is disabled"
+    behavior: "Operator selection is rejected with 403."
+    must_preserve: true
+error_paths:
+  - source_loc: apps/api/src/main/java/br/com/bardozico/IdentityController.java:30
+    trigger: "Invalid credentials or unavailable identity"
+    outcome: "Return authentication error without exposing password or token."
+    contract: "401 JSON {error:string}"
+    must_preserve: true
+concurrency:
+  model: sync
+  tx_boundary:
+    source_loc: apps/api/src/main/java/br/com/bardozico/Identity.java:1
+    scope: "Identity database reads/writes and session revocation."
+    isolation: "database default"
+    must_preserve: true

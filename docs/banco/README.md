@@ -19,8 +19,15 @@ este projeto gera sua própria representação a partir do banco implementado.
 Total do modelo inicial: 33 tabelas operacionais/de referência. V11 acrescentou
 `app_sessions` e `login_attempts` para autenticação local. V13 acrescentou `stock_movements`: são 36 tabelas mais
 `flyway_schema_history`, gerenciada pelo Flyway. O banco atual tem 87 chaves
-estrangeiras, quatro views e 17 migrações versionadas. Compras, receitas,
+estrangeiras, quatro views e 19 migrações versionadas. Compras, receitas,
 ingredientes e integrações permanecem fora desta entrega.
+
+V19 acrescenta `cash_sessions.review_required`. A abertura do programa marca
+turnos anteriores para conferência, preservando valores e histórico. O banco
+impede recebimentos/movimentos nesse estado, uma nova abertura enquanto houver
+pendência e a remoção da marca sem o fechamento contado. Caixa fechado continua
+imutável; V1–V18 não foram alteradas. Verificação em banco preenchido:
+`scripts/validar_migracao_v19.py`.
 
 A migração **V12 — `simple_staff_login_and_archived_tables`** acrescenta
 `users.username` e `bar_tables.active`, sem criar tabelas ou alterar V1–V11.

@@ -1,0 +1,7 @@
+unit: android-attendance-shell
+commit: false
+candidate_splits:
+  - id: apps/android/app/src/main/java/br/com/bardozico/android/MainActivity.java:18-92
+    drivers: [concern_split, lifecycle_split]
+    rationale: "Connection settings, WebView security policy, and failure presentation are distinct native shell concerns."
+    source_slice: {file: apps/android/app/src/main/java/br/com/bardozico/android/MainActivity.java, lines: [18, 92]}

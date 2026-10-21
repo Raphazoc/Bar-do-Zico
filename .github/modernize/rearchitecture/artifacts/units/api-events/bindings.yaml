@@ -1,0 +1,15 @@
+unit: api-events
+bindings:
+  - type: listener
+    name: "@EnableScheduling"
+    source_loc: apps/api/src/main/java/br/com/bardozico/LocalEvents.java:10
+    target: LocalEvents.deliver
+    must_appear_in_target: true
+    notes: "Enables two-second scheduled outbox delivery."
+  - type: route-declaration
+    name: "@GetMapping(value=\"/api/events\", produces=\"text/event-stream\")"
+    source_loc: apps/api/src/main/java/br/com/bardozico/LocalEvents.java:16
+    target: LocalEvents.subscribe
+    must_appear_in_target: true
+    notes: "SSE endpoint."
+runtime_config: []

@@ -1,4 +1,53 @@
 import {test,expect,type Page,type APIRequestContext} from '@playwright/test';
+import {readFile,stat} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import {spawn} from 'node:child_process';
+
+test.beforeEach(async({playwright,baseURL})=>{
+  expect(process.env.BAR_TEST_DATABASE).toBe('true');
+  const admin=await playwright.request.newContext({baseURL,userAgent:'BarDoZicoDesktopE2E/0.2.3'});
+  try{
+    const me=await admin.get('/api/me').then(r=>r.json());expect(me.unit.name).toBe('Bar de teste das telas');
+    const state=await admin.get('/api/state').then(r=>r.json());
+    for(const shift of state.sessions.filter((s:any)=>s.status==='ABERTA')){
+      const counted=Object.fromEntries(state.cashTotals.filter((r:any)=>r.cash_session_id===shift.id).map((r:any)=>[r.method,String(r.expected_amount)]));
+      await apiCommand(admin,'cash.close',{sessionId:shift.id,counted});
+    }
+  }finally{await admin.dispose();}
+});
+
+test('guia da mesa abre prévia de impressão sem salvar e preserva o atendimento',async({page},info)=>{
+  await open(page);const f=await fixture(page,'Guia '+info.project.name+' '+Date.now());
+  const account=await command(page,'account.open',{tableId:f.table.id});await command(page,'order.create',{accountId:account.id,items:[{productId:f.product.id,quantity:'2'}]});
+  await command(page,'account.adjust',{accountId:account.id,kind:'DESCONTO',amount:'5',reason:'Desconto para conferir guia'});
+  const before=await page.request.get('/api/accounts/'+account.id).then(r=>r.json());
+  await page.reload();await page.getByLabel('Buscar mesa',{exact:true}).fill(f.number);await page.getByRole('region',{name:'Mesa '+f.number,exact:true}).getByRole('button',{name:'Ver consumo',exact:true}).click();
+  await page.getByRole('button',{name:'Imprimir guia da mesa',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Guia da mesa · 80 mm',exact:true});await expect(dialog.getByTitle('Prévia da guia da mesa')).toBeVisible();
+  await expect(dialog.getByRole('link',{name:'Imprimir',exact:true})).toHaveAttribute('target','_blank');await expect(dialog.getByRole('link',{name:'Salvar PDF',exact:true})).toHaveCount(0);
+  const response=await page.request.get('/api/accounts/'+account.id+'/guide.pdf');expect(response.status()).toBe(200);expect((await response.body()).subarray(0,5).toString()).toBe('%PDF-');
+  await page.screenshot({path:'test-results/'+info.project.name+'-guia-mesa.png',fullPage:false});
+  await dialog.getByRole('button',{name:'Fechar guia',exact:true}).click();await expect(page.getByRole('button',{name:'Imprimir guia da mesa',exact:true})).toBeFocused();
+  const after=await page.request.get('/api/accounts/'+account.id).then(r=>r.json());expect(after).toEqual(before);
+  await nav(page,'Caixa');await page.getByRole('combobox',{name:'Selecionar mesa',exact:true}).selectOption(account.id);await expect(page.getByRole('button',{name:'Visualizar / imprimir guia',exact:true})).toBeVisible();
+  if(info.project.name==='computador'&&process.env.BAR_NATIVE_RECEIPT_SMOKE==='true'){
+    const started=Date.now();await new Promise<void>((accept,reject)=>{
+      const child=spawn(resolve('../../output/app/Bar do Zico/Bar do Zico.exe'),['--receipt-smoke-test='+account.id],{cwd:resolve('../..'),env:{...process.env,BAR_DESKTOP_URL:process.env.BAR_E2E_URL,BAR_PROJECT_DIR:resolve('../..')},windowsHide:true,stdio:'ignore'});
+      const timer=setTimeout(()=>{child.kill();reject(new Error('Prévia nativa não terminou em 60 segundos'));},60000);
+      child.on('error',reject);child.on('exit',code=>{clearTimeout(timer);code===0?accept():reject(new Error('Programa nativo terminou com '+code));});
+    });
+    const result=resolve('../../.tools/desktop-receipt-smoke.txt');expect((await stat(result)).mtimeMs).toBeGreaterThan(started);expect(await readFile(result,'utf8')).toMatch(/^OK:/);
+  }
+});
+
+test('guia explica falhas e usa a prévia nativa quando disponível',async({page},info)=>{
+  await open(page);const f=await fixture(page,'Falha guia '+info.project.name+' '+Date.now()),account=await command(page,'account.open',{tableId:f.table.id});
+  await page.reload();await page.getByLabel('Buscar mesa',{exact:true}).fill(f.number);await page.getByRole('region',{name:'Mesa '+f.number,exact:true}).getByRole('button',{name:'Ver consumo',exact:true}).click();
+  await page.route('**/api/accounts/*/guide.pdf',r=>r.fulfill({status:403,contentType:'application/json',body:JSON.stringify({error:'A impressão da guia é feita no computador administrador.'})}));
+  await page.getByRole('button',{name:'Imprimir guia da mesa',exact:true}).click();await expect(page.getByRole('dialog').getByRole('alert')).toContainText('computador administrador');await expect(page.getByRole('link',{name:'Salvar PDF',exact:true})).toHaveCount(0);await page.keyboard.press('Escape');
+  await page.unroute('**/api/accounts/*/guide.pdf');await page.evaluate(()=>{window.barReceiptPrinter={preview:(id:string)=>{document.body.dataset.printedAccount=id;}};});
+  await page.getByRole('button',{name:'Imprimir guia da mesa',exact:true}).click();await expect(page.getByRole('dialog')).toHaveCount(0);expect(await page.locator('body').getAttribute('data-printed-account')).toBe(account.id);
+});
 
 test('servidor fechado explica autorização sem mostrar login ou dados anteriores',async({page})=>{
   await page.route('**/api/me',r=>r.fulfill({status:401,contentType:'application/json',body:JSON.stringify({error:'Entre no sistema para continuar.'})}));
@@ -21,6 +70,58 @@ async function command(page:Page,operation:string,body:Record<string,unknown>){r
 async function fixture(page:Page,suffix:string){const area=await command(page,'area.save',{name:'Salão '+suffix}),number=Date.now().toString().slice(-9),table=await command(page,'table.save',{number,areaId:area.id}),category=await command(page,'category.save',{name:'Bebidas '+suffix}),product=await command(page,'product.save',{name:'Bebida '+suffix,categoryId:category.id,price:'10.00',destination:'BAR',stockControlled:true,stockQuantity:'10',stockMinimum:'2'});await page.reload();await expect(page.getByRole('heading',{name:'Mesas',exact:true})).toBeVisible();return {number,table,category,product,name:'Bebida '+suffix};}
 async function width(page:Page){expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();}
 
+async function categoryProductFlow(page:Page,administrator:APIRequestContext,suffix:string,attendance:boolean){
+  const area=await apiCommand(administrator,'area.save',{name:'Categorias '+suffix}),number='Cat-'+Date.now().toString().slice(-9);
+  const table=await apiCommand(administrator,'table.save',{number,areaId:area.id});
+  const drinks=await apiCommand(administrator,'category.save',{name:'Bebidas '+suffix});
+  const food=await apiCommand(administrator,'category.save',{name:'Porções '+suffix});
+  const empty=await apiCommand(administrator,'category.save',{name:'Sem produtos '+suffix});
+  const inactive=await apiCommand(administrator,'category.save',{name:'Categoria desativada '+suffix,active:false});
+  const createProduct=(name:string,categoryId:string,price:string,extra={})=>apiCommand(administrator,'product.save',{name,categoryId,price,destination:'SEM_PREPARO',stockControlled:true,stockQuantity:'5',stockMinimum:'1',...extra});
+  const beerName='Cerveja '+suffix,foodName='Porção '+suffix;
+  const beer=await createProduct(beerName,drinks.id,'15');
+  const snack=await createProduct(foodName,food.id,'20');
+  await createProduct('Bebida indisponível '+suffix,drinks.id,'9',{available:false});
+  await createProduct('Bebida sem estoque '+suffix,drinks.id,'8',{stockQuantity:'0'});
+  const group=await apiCommand(administrator,'modifier-group.save',{name:'Complementos '+suffix,min:0,max:1});
+  const modifierName='Limão '+suffix;
+  await apiCommand(administrator,'modifier.save',{name:modifierName,groupId:group.id,price:'1'});
+  await apiCommand(administrator,'product.groups',{productId:beer.id,groupIds:[group.id]});
+  await open(page);await page.getByLabel('Buscar mesa',{exact:true}).fill(number);
+  await page.getByRole('region',{name:'Mesa '+number,exact:true}).getByRole('button',{name:attendance?'Abrir mesa':'Abrir atendimento',exact:true}).click();
+  await page.getByRole('button',{name:'Adicionar produto',exact:true}).click();
+  const dialog=page.getByRole('dialog'),category=dialog.getByRole('combobox',{name:'Categoria',exact:true}),product=dialog.getByRole('combobox',{name:'Produto',exact:true}),save=dialog.getByRole('button',{name:'Adicionar à mesa',exact:true});
+  await expect(category).toBeFocused();await expect(category).toHaveValue('');
+  await expect(product).toBeDisabled();await expect(product.locator('option')).toHaveCount(1);await expect(save).toBeDisabled();
+  await expect(category.locator('option[value="'+inactive.id+'"]')).toHaveCount(0);
+  await category.selectOption(drinks.id);
+  await expect(product).toBeEnabled();await expect(product.locator('option')).toHaveCount(2);
+  await expect(product.locator('option[value="'+snack.id+'"]')).toHaveCount(0);
+  await product.selectOption(beer.id);await dialog.getByRole('checkbox',{name:new RegExp(modifierName)}).check();
+  await dialog.getByLabel('Quantidade',{exact:true}).fill('2');await dialog.getByLabel('Observação',{exact:true}).fill('Bem gelada');
+  await category.selectOption(food.id);
+  await expect(product).toHaveValue('');await expect(save).toBeDisabled();
+  await expect(dialog.getByLabel('Quantidade',{exact:true})).toHaveValue('1');await expect(dialog.getByLabel('Observação',{exact:true})).toHaveValue('');
+  await expect(dialog.getByRole('checkbox')).toHaveCount(0);await expect(product.locator('option')).toHaveCount(2);
+  await expect(product.locator('option[value="'+beer.id+'"]')).toHaveCount(0);
+  await category.selectOption(empty.id);await expect(product).toBeDisabled();
+  await expect(dialog.getByRole('status')).toHaveText('Nenhum produto disponível nesta categoria.');await expect(save).toBeDisabled();
+  await category.selectOption(drinks.id);await product.selectOption(beer.id);
+  await apiCommand(administrator,'product.availability',{productId:beer.id,available:false});
+  await expect(product).toHaveValue('',{timeout:12000});await expect(product).toBeDisabled();await expect(save).toBeDisabled();
+  await category.selectOption(food.id);await product.selectOption(snack.id);
+  await width(page);await page.screenshot({path:'test-results/'+(attendance?'apk-':'pc-')+suffix.split(' ')[0]+'-categoria-produto.png',fullPage:false});
+  await save.click();await expect(dialog).toHaveCount(0);await expect(page.locator('.total-line')).toContainText('20,00');
+  const state=await administrator.get('/api/state').then(r=>r.json()),account=state.accounts.find((a:any)=>a.table_id===table.id);
+  const details=await administrator.get('/api/accounts/'+account.id).then(r=>r.json());
+  expect(details.items).toHaveLength(1);expect(details.items[0].product_id).toBe(snack.id);expect(Number(details.items[0].quantity)).toBe(1);
+  expect(details.items[0].notes||'').toBe('');expect(details.modifiers).toHaveLength(0);
+}
+
+test('categoria vem antes do produto e separa bebidas de porções no PC',async({page},info)=>{
+  await categoryProductFlow(page,page.request,info.project.name+' '+Date.now(),false);
+});
+
 test('abre direto sem login nem recursos externos',async({page},info)=>{
   const failures:string[]=[],external:string[]=[];page.on('pageerror',e=>failures.push(e.message));await page.route('**/*',r=>{if(new URL(r.request().url()).hostname==='127.0.0.1')return r.continue();external.push(r.request().url());return r.abort();});await open(page);await expect(page.locator('input[type=password],input[type=email]')).toHaveCount(0);await expect(page.getByRole('button',{name:'Entrar',exact:true})).toHaveCount(0);await width(page);await page.screenshot({path:'test-results/'+info.project.name+'-mesas.png',fullPage:true});expect(failures).toEqual([]);expect(external).toEqual([]);
 });
@@ -34,7 +135,7 @@ test('filtros não abrem conta e mesa ocupada fica protegida',async({page},info)
   await open(page);const f=await fixture(page,'Filtro '+info.project.name+' '+Date.now());await command(page,'account.open',{tableId:f.table.id});await page.reload();await page.getByLabel('Buscar mesa',{exact:true}).fill(f.number);await page.getByRole('combobox',{name:'Mostrar',exact:true}).selectOption('OCUPADA');const card=page.getByRole('region',{name:'Mesa '+f.number,exact:true});await expect(card).toBeVisible();await expect(card.getByRole('button',{name:'Excluir mesa '+f.number,exact:true})).toBeDisabled();await page.getByRole('combobox',{name:'Mostrar',exact:true}).selectOption('LIVRE');await expect(card).toHaveCount(0);
 });
 test('pedido dá baixa no estoque e caixa recebe com troco e fecha',async({page},info)=>{
-  await open(page);const f=await fixture(page,'Fluxo '+info.project.name+' '+Date.now());const terminal=await command(page,'terminal.save',{name:'Fluxo '+info.project.name+' '+Date.now()});await page.reload();await page.getByRole('region',{name:'Mesa '+f.number,exact:true}).getByRole('button',{name:'Abrir atendimento',exact:true}).click();await expect(page.getByRole('heading',{name:'Mesa '+f.number,exact:true})).toBeVisible();await page.getByRole('button',{name:'Adicionar produto',exact:true}).click();const product=page.getByRole('dialog');await product.getByRole('combobox',{name:'Produto',exact:true}).selectOption(f.product.id);await product.getByLabel('Quantidade',{exact:true}).fill('2');await product.getByRole('button',{name:'Adicionar à mesa',exact:true}).click();await expect(page.getByRole('heading',{name:'Novo pedido',exact:true})).toHaveCount(0);await expect(page.locator('.total-line')).toContainText('20,00');await page.screenshot({path:'test-results/'+info.project.name+'-atendimento.png',fullPage:true});await expect(page.getByRole('button',{name:'Acompanhar pedido',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Enviar pedido',exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Ir para o caixa',exact:true}).click();await page.getByRole('button',{name:'Abrir caixa',exact:true}).click();const opening=page.getByRole('dialog');if(await opening.getByLabel('Nome do caixa',{exact:true}).count())await opening.getByLabel('Nome do caixa',{exact:true}).fill('Caixa teste');else await opening.getByRole('combobox',{name:'Caixa',exact:true}).selectOption(terminal.id);await opening.getByLabel('Dinheiro inicial (R$)',{exact:true}).fill('50');await opening.getByRole('button',{name:'Começar caixa',exact:true}).click();await page.getByLabel('Dinheiro recebido (R$)',{exact:true}).fill('50');await expect(page.locator('.change')).toContainText('30,00');await page.getByRole('button',{name:'Receber e finalizar mesa',exact:true}).click();await expect(page.getByRole('dialog',{name:'Comprovante simples',exact:true})).toBeVisible();await page.getByRole('button',{name:'Fechar comprovante',exact:true}).click();await page.getByRole('button',{name:'Fechamento de caixa',exact:true}).click();for(const method of ['Dinheiro','Pix','Débito','Crédito','Voucher','Outro'])await page.getByLabel(method+' contado (R$)',{exact:true}).fill(method==='Dinheiro'?'70':'0');await page.getByRole('button',{name:'Fechar caixa',exact:true}).click();await expect(page.getByText('Caixa fechado',{exact:true})).toBeVisible();await expect(page.getByRole('region',{name:'Resumo do caixa selecionado',exact:true})).toContainText('Dinheiro previsto no fechamento');await nav(page,'Estoque');await page.getByLabel('Buscar produto',{exact:true}).fill(f.name);await expect(page.getByRole('row').filter({has:page.getByText(f.name,{exact:true})})).toContainText('8');await width(page);
+  await open(page);const f=await fixture(page,'Fluxo '+info.project.name+' '+Date.now());const terminal=await command(page,'terminal.save',{name:'Fluxo '+info.project.name+' '+Date.now()});await page.reload();await page.getByRole('region',{name:'Mesa '+f.number,exact:true}).getByRole('button',{name:'Abrir atendimento',exact:true}).click();await expect(page.getByRole('heading',{name:'Mesa '+f.number,exact:true})).toBeVisible();await page.getByRole('button',{name:'Adicionar produto',exact:true}).click();const product=page.getByRole('dialog');await product.getByRole('combobox',{name:'Categoria',exact:true}).selectOption(f.category.id);await product.getByRole('combobox',{name:'Produto',exact:true}).selectOption(f.product.id);await product.getByLabel('Quantidade',{exact:true}).fill('2');await product.getByRole('button',{name:'Adicionar à mesa',exact:true}).click();await expect(page.getByRole('heading',{name:'Novo pedido',exact:true})).toHaveCount(0);await expect(page.locator('.total-line')).toContainText('20,00');await page.screenshot({path:'test-results/'+info.project.name+'-atendimento.png',fullPage:true});await expect(page.getByRole('button',{name:'Acompanhar pedido',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Enviar pedido',exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Ir para o caixa',exact:true}).click();await page.getByRole('button',{name:'Abrir caixa',exact:true}).click();const opening=page.getByRole('dialog');if(await opening.getByLabel('Nome do caixa',{exact:true}).count())await opening.getByLabel('Nome do caixa',{exact:true}).fill('Caixa teste');else await opening.getByRole('combobox',{name:'Caixa',exact:true}).selectOption(terminal.id);await opening.getByLabel('Dinheiro inicial (R$)',{exact:true}).fill('50');await opening.getByRole('button',{name:'Começar caixa',exact:true}).click();await page.getByLabel('Dinheiro recebido (R$)',{exact:true}).fill('50');await expect(page.locator('.change')).toContainText('30,00');await page.getByRole('button',{name:'Receber e finalizar mesa',exact:true}).click();await expect(page.getByRole('dialog',{name:'Comprovante simples',exact:true})).toBeVisible();await page.getByRole('button',{name:'Fechar comprovante',exact:true}).click();await page.getByRole('button',{name:'Fechamento de caixa',exact:true}).click();await expect(page.getByLabel('Dinheiro contado (R$)',{exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Fechar caixa',exact:true}).click();await expect(page.getByText('Caixa fechado',{exact:true})).toBeVisible();await expect(page.getByRole('region',{name:'Resumo do caixa selecionado',exact:true})).toContainText('Dinheiro previsto no fechamento');await nav(page,'Estoque');await page.getByLabel('Buscar produto',{exact:true}).fill(f.name);await expect(page.getByRole('row').filter({has:page.getByText(f.name,{exact:true})})).toContainText('8');await width(page);
 });
 test('funcionário sem credenciais pode ser cadastrado editado e ativado',async({page},info)=>{
   await open(page);await nav(page,'Funcionários');await page.getByRole('button',{name:'+ Cadastrar funcionário',exact:true}).click();let dialog=page.getByRole('dialog');await expect(dialog.locator('input[type=password],input[type=email]')).toHaveCount(0);const name='Atendente '+info.project.name+' '+Date.now();await dialog.getByLabel('Nome do funcionário').fill(name);await dialog.getByRole('combobox',{name:'Função',exact:true}).selectOption('base:ATENDIMENTO');await dialog.getByRole('button',{name:'Salvar funcionário',exact:true}).click();let row=page.getByRole('row').filter({has:page.getByText(name,{exact:true})});await expect(row).toBeVisible();await row.getByRole('button',{name:'Editar',exact:true}).click();dialog=page.getByRole('dialog');await dialog.getByLabel('Nome do funcionário').fill(name+' corrigido');await dialog.getByRole('button',{name:'Salvar funcionário',exact:true}).click();row=page.getByRole('row').filter({has:page.getByText(name+' corrigido',{exact:true})});await row.getByRole('button',{name:'Desativar',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Confirmar',exact:true}).click();await expect(row).toContainText('Inativo');await row.getByRole('button',{name:'Ativar',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Confirmar',exact:true}).click();await expect(row).toContainText('Ativo');
@@ -49,7 +150,7 @@ test('queda de conexão bloqueia envios e permite reconectar',async({page,contex
   await open(page);await context.setOffline(true);await expect(page.getByRole('button',{name:'Reconectar',exact:true})).toBeVisible({timeout:25000});await context.setOffline(false);await page.getByRole('button',{name:'Reconectar',exact:true}).click();await expect(page.getByText('● Conectado ao bar',{exact:true})).toBeVisible();
 });
 test('resposta perdida confere cadastro sem duplicar',async({page})=>{
-  await open(page);await page.getByRole('button',{name:'Adicionar mesa',exact:true}).click();const number='Reenvio-'+Date.now().toString().slice(-7),dialog=page.getByRole('dialog');await dialog.getByLabel('Número ou nome da mesa').fill(number);let lost=false;await page.route('**/api/commands/table.save',async route=>{if(!lost){lost=true;await route.fetch();return route.abort();}return route.continue();});await dialog.getByRole('button',{name:'Salvar mesa',exact:true}).click();await expect(page.getByRole('button',{name:'Conferir envio',exact:true})).toBeVisible();await page.keyboard.press('Escape');await page.getByRole('button',{name:'Conferir envio',exact:true}).click();await expect(page.getByRole('button',{name:'Conferir envio',exact:true})).toHaveCount(0);await expect(page.getByRole('region',{name:'Mesa '+number,exact:true})).toHaveCount(1);
+  await open(page);await page.getByRole('button',{name:'Adicionar mesa',exact:true}).click();const number='Reenvio-'+Date.now().toString().slice(-7),dialog=page.getByRole('dialog');await dialog.getByLabel('Número ou nome da mesa').fill(number);let lost=false;await page.route('**/api/commands/table.create',async route=>{if(!lost){lost=true;await route.fetch();return route.abort();}return route.continue();});await dialog.getByRole('button',{name:'Salvar mesa',exact:true}).click();await expect(page.getByRole('button',{name:'Conferir envio',exact:true})).toBeVisible();await page.keyboard.press('Escape');await page.getByRole('button',{name:'Conferir envio',exact:true}).click();await expect(page.getByRole('button',{name:'Conferir envio',exact:true})).toHaveCount(0);await expect(page.getByRole('region',{name:'Mesa '+number,exact:true})).toHaveCount(1);
 });
 test('configurações mostram QR e endereço para Android',async({page})=>{
   await open(page);const menu=page.getByRole('button',{name:'Abrir menu',exact:true});if(await menu.isVisible())await menu.click();await page.getByRole('button',{name:'Configurações',exact:true}).filter({visible:true}).click();await expect(page.getByRole('heading',{name:'Acesso pelo Android',exact:true})).toBeVisible();await expect(page.getByRole('img',{name:'QR Code do endereço local do sistema'})).toBeVisible();await width(page);
@@ -59,7 +160,7 @@ test('excluir produto remove do estoque cardápio e seleção, preservando movim
   await open(page);const f=await fixture(page,'Excluir '+info.project.name+' '+Date.now());await expect(page.getByRole('button',{name:'Pedidos para preparar',exact:true})).toHaveCount(0);await nav(page,'Estoque');await page.getByLabel('Buscar produto',{exact:true}).fill(f.name);let row=page.getByRole('row').filter({has:page.getByText(f.name,{exact:true})});await row.getByRole('button',{name:'Excluir produto '+f.name,exact:true}).click();let dialog=page.getByRole('dialog');await expect(dialog.getByRole('button',{name:'Cancelar',exact:true})).toBeFocused();await page.screenshot({path:'test-results/'+info.project.name+'-excluir-produto.png',fullPage:false});await dialog.getByRole('button',{name:'Cancelar',exact:true}).click();await expect(row).toBeVisible();await row.getByRole('button',{name:'Excluir produto '+f.name,exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Sim, excluir produto',exact:true}).click();await expect(row).toHaveCount(0);await page.reload();await nav(page,'Estoque');await page.getByLabel('Buscar produto',{exact:true}).fill(f.name);await expect(page.getByRole('row').filter({has:page.getByText(f.name,{exact:true})})).toHaveCount(0);await page.getByRole('button',{name:'Movimentações',exact:true}).click();await expect(page.getByRole('row').filter({has:page.getByText(f.name,{exact:true})})).toContainText('Quantidade inicial');await nav(page,'Cardápio');await page.getByLabel('Buscar produto',{exact:true}).fill(f.name);await expect(page.getByRole('heading',{name:f.name,exact:true})).toHaveCount(0);await nav(page,'Mesas');await page.getByRole('region',{name:'Mesa '+f.number,exact:true}).getByRole('button',{name:'Abrir atendimento',exact:true}).click();await page.getByRole('button',{name:'Adicionar produto',exact:true}).click();await expect(page.getByRole('dialog').locator('option[value="'+f.product.id+'"]')).toHaveCount(0);
 });
 test('adição direta com resposta perdida não duplica consumo e permite remover',async({page},info)=>{
-  await open(page);const f=await fixture(page,'Direto '+info.project.name+' '+Date.now());await page.getByRole('region',{name:'Mesa '+f.number,exact:true}).getByRole('button',{name:'Abrir atendimento',exact:true}).click();await page.getByRole('button',{name:'Adicionar produto',exact:true}).click();let dialog=page.getByRole('dialog');await dialog.getByRole('combobox',{name:'Produto',exact:true}).selectOption(f.product.id);let lost=false;await page.route('**/api/commands/order.create',async route=>{if(!lost){lost=true;await route.fetch();return route.abort();}return route.continue();});await dialog.getByRole('button',{name:'Adicionar à mesa',exact:true}).click();await expect(page.getByRole('button',{name:'Conferir envio',exact:true})).toBeVisible();await page.reload();await page.getByRole('button',{name:'Conferir envio',exact:true}).click();await expect(page.getByRole('button',{name:'Conferir envio',exact:true})).toHaveCount(0);await page.getByRole('region',{name:'Mesa '+f.number,exact:true}).getByRole('button',{name:'Ver consumo',exact:true}).click();await expect(page.locator('.total-line')).toContainText('10,00');await expect(page.locator('.consumption-list>div')).toHaveCount(1);await page.getByRole('button',{name:'Remover '+f.name,exact:true}).click();dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'Confirmar remoção',exact:true}).click();await expect(page.locator('.total-line')).toContainText('0,00');await nav(page,'Estoque');await page.getByLabel('Buscar produto',{exact:true}).fill(f.name);await expect(page.getByRole('row').filter({has:page.getByText(f.name,{exact:true})})).toContainText('10');
+  await open(page);const f=await fixture(page,'Direto '+info.project.name+' '+Date.now());await page.getByRole('region',{name:'Mesa '+f.number,exact:true}).getByRole('button',{name:'Abrir atendimento',exact:true}).click();await page.getByRole('button',{name:'Adicionar produto',exact:true}).click();let dialog=page.getByRole('dialog');await dialog.getByRole('combobox',{name:'Categoria',exact:true}).selectOption(f.category.id);await dialog.getByRole('combobox',{name:'Produto',exact:true}).selectOption(f.product.id);let lost=false;await page.route('**/api/commands/order.create',async route=>{if(!lost){lost=true;await route.fetch();return route.abort();}return route.continue();});await dialog.getByRole('button',{name:'Adicionar à mesa',exact:true}).click();await expect(page.getByRole('button',{name:'Conferir envio',exact:true})).toBeVisible();await page.reload();await page.getByRole('button',{name:'Conferir envio',exact:true}).click();await expect(page.getByRole('button',{name:'Conferir envio',exact:true})).toHaveCount(0);await page.getByRole('region',{name:'Mesa '+f.number,exact:true}).getByRole('button',{name:'Ver consumo',exact:true}).click();await expect(page.locator('.total-line')).toContainText('10,00');await expect(page.locator('.consumption-list>div')).toHaveCount(1);await page.getByRole('button',{name:'Remover '+f.name,exact:true}).click();dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'Confirmar remoção',exact:true}).click();await expect(page.locator('.total-line')).toContainText('0,00');await nav(page,'Estoque');await page.getByLabel('Buscar produto',{exact:true}).fill(f.name);await expect(page.getByRole('row').filter({has:page.getByText(f.name,{exact:true})})).toContainText('10');
 });
 
 test('excluir local transfere uma mesa ocupada sem alterar consumo',async({page},info)=>{
@@ -103,7 +204,7 @@ test('computador administra e um caixa novo começa com zero reais',async({page}
   await expect(page.getByRole('region',{name:'Resumo do caixa selecionado',exact:true})).toContainText('0,00');
 });
 
-test('caixa já aberto permite continuar sem mudar o dinheiro inicial',async({page},info)=>{
+test('recarregar a mesma janela preserva a abertura e não duplica o caixa',async({page},info)=>{
   await open(page);
   const name='Aberto '+info.project.name+' '+Date.now(),terminal=await command(page,'terminal.save',{name}),cash=await command(page,'cash.open',{terminalId:terminal.id,openingAmount:'37'});
   await page.reload();await nav(page,'Caixa');
@@ -116,6 +217,78 @@ test('caixa já aberto permite continuar sem mudar o dinheiro inicial',async({pa
   await expect(page.getByRole('combobox',{name:'Caixa em uso',exact:true})).toHaveValue(cash.id);
   const state=await page.request.get('/api/state').then(r=>r.json()),sessions=state.sessions.filter((s:any)=>s.terminal_id===terminal.id);
   expect(sessions).toHaveLength(1);expect(Number(sessions[0].opening_amount)).toBe(37);
+});
+
+test('seleção do caixa não oferece aberturas antigas encerradas',async({page},info)=>{
+  await open(page);
+  const terminal=await command(page,'terminal.save',{name:'Sem histórico '+info.project.name+' '+Date.now()});
+  const previous=[];
+  for(const openingAmount of ['37','0']){
+    const cash=await command(page,'cash.open',{terminalId:terminal.id,openingAmount});previous.push(cash.id);
+    await command(page,'cash.close',{sessionId:cash.id,useSystemTotals:true});
+  }
+  await page.reload();await nav(page,'Caixa');
+  const selection=page.getByRole('combobox',{name:'Caixa em uso',exact:true});
+  await expect(selection).toBeDisabled();await expect(selection).toHaveValue('');
+  await expect(selection.locator('option')).toHaveText(['Nenhum caixa aberto']);
+  const summary=page.getByRole('region',{name:'Resumo do caixa selecionado',exact:true});
+  await expect(summary).toContainText('Selecione um caixa ou abra um novo para acompanhar os valores.');
+  await expect(summary.locator('.balance-cards')).toHaveCount(0);
+  await page.getByRole('button',{name:'Abrir caixa',exact:true}).click();
+  const opening=page.getByRole('dialog',{name:'Abrir caixa',exact:true});
+  await opening.getByRole('combobox',{name:'Caixa',exact:true}).selectOption(terminal.id);
+  await opening.getByRole('button',{name:'Começar caixa',exact:true}).click();await expect(opening).toHaveCount(0);
+  await expect(selection).toBeEnabled();
+  const active=await selection.inputValue();expect(active).not.toBe('');
+  for(const id of previous)await expect(selection.locator('option[value="'+id+'"]')).toHaveCount(0);
+  await page.getByRole('button',{name:'Fechamento de caixa',exact:true}).click();
+  await page.getByRole('button',{name:'Fechar caixa',exact:true}).click();
+  await expect(page.getByText('Caixa fechado',{exact:true})).toBeVisible();
+  await expect(selection).toBeDisabled();await expect(selection.locator('option')).toHaveText(['Nenhum caixa aberto']);
+  await expect(page.getByRole('region',{name:'Resumo do caixa selecionado',exact:true})).toContainText('Dinheiro previsto no fechamento');
+  await nav(page,'Mesas');await nav(page,'Caixa');
+  await expect(selection).toHaveValue('');
+  await expect(summary).toContainText('Selecione um caixa ou abra um novo para acompanhar os valores.');
+  await expect(summary.locator('.balance-cards')).toHaveCount(0);
+  const state=await page.request.get('/api/state').then(r=>r.json());
+  for(const id of [...previous,active]){
+    expect(state.sessions.find((s:any)=>s.id===id).status).toBe('FECHADA');
+    expect(state.closures.filter((c:any)=>c.cash_session_id===id)).toHaveLength(1);
+  }
+  await page.screenshot({path:'test-results/'+info.project.name+'-caixa-sem-historico.png',fullPage:true});
+});
+
+test('nova janela exige fechar o caixa anterior antes de abrir o dia',async({page,browser,baseURL},info)=>{
+  await open(page);const terminal=await command(page,'terminal.save',{name:'Diário '+info.project.name+' '+Date.now()}),cash=await command(page,'cash.open',{terminalId:terminal.id,openingAmount:'37'});
+  const context=await browser.newContext({baseURL,viewport:info.project.use.viewport});
+  try{
+    const other=await context.newPage();await open(other);await expect(other.getByText('Há caixa com fechamento pendente.',{exact:false})).toBeVisible();await nav(other,'Caixa');
+    await expect(other.getByText('Fechamento pendente',{exact:true})).toBeVisible();await expect(other.getByRole('button',{name:'Receber e finalizar mesa',exact:true})).toHaveCount(0);
+    await other.getByRole('button',{name:'Conferir caixa anterior',exact:true}).click();const dialog=other.getByRole('dialog',{name:'Feche o caixa anterior',exact:true});
+    await expect(dialog.getByRole('button',{name:'Começar caixa',exact:true})).toHaveCount(0);await expect(dialog.getByRole('button',{name:'Usar caixa aberto',exact:true})).toHaveCount(0);
+    await dialog.getByRole('button',{name:'Conferir e fechar',exact:true}).click();await expect(other.getByLabel('Dinheiro contado (R$)',{exact:true})).toHaveCount(0);await expect(other.locator('.total-line').filter({hasText:'Total do fechamento'})).toContainText('37,00');
+    await other.getByRole('button',{name:'Fechar caixa',exact:true}).click();await expect(other.getByText('Caixa fechado',{exact:true})).toBeVisible();
+    await other.getByRole('button',{name:'Abrir caixa',exact:true}).click();const opening=other.getByRole('dialog',{name:'Abrir caixa',exact:true});await opening.getByRole('combobox',{name:'Caixa',exact:true}).selectOption(terminal.id);await expect(opening.getByLabel('Dinheiro inicial (R$)',{exact:true})).toHaveValue('0');await opening.getByRole('button',{name:'Começar caixa',exact:true}).click();
+    const state=await other.request.get('/api/state').then(r=>r.json());expect(state.sessions.find((s:any)=>s.id===cash.id).status).toBe('FECHADA');expect(state.sessions.filter((s:any)=>s.terminal_id===terminal.id&&s.status==='ABERTA')).toHaveLength(1);
+    await other.screenshot({path:'test-results/'+info.project.name+'-abertura-diaria.png',fullPage:true});
+  }finally{await context.close();}
+});
+
+test('impressão e recebimento ficam livres, incluindo pagamento parcial sem abrir a guia',async({page},info)=>{
+  await open(page);const f=await fixture(page,'Pagamento livre '+info.project.name+' '+Date.now()),account=await command(page,'account.open',{tableId:f.table.id}),terminal=await command(page,'terminal.save',{name:'Livre '+Date.now()}),cash=await command(page,'cash.open',{terminalId:terminal.id});
+  await command(page,'order.create',{accountId:account.id,items:[{productId:f.product.id,quantity:'2'}]});
+  await page.reload();await nav(page,'Caixa');await page.getByRole('combobox',{name:'Caixa em uso',exact:true}).selectOption(cash.id);await page.getByRole('combobox',{name:'Selecionar mesa',exact:true}).selectOption(account.id);
+  await expect(page.getByRole('button',{name:'Conta conferida. Ir para pagamento',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Visualizar / imprimir guia',exact:true})).toBeEnabled();await expect(page.getByRole('button',{name:'Receber e finalizar mesa',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'Pix',exact:true}).click();await page.getByLabel('Pagamento parcial',{exact:true}).check();await page.getByLabel('Valor a pagar (R$)',{exact:true}).fill('10');await page.getByRole('button',{name:'Receber pagamento parcial',exact:true}).click();
+  let receipt=page.getByRole('dialog',{name:'Comprovante simples',exact:true});await expect(receipt).toBeVisible();await receipt.getByRole('button',{name:'Fechar comprovante',exact:true}).click();
+  let details=await page.request.get('/api/accounts/'+account.id).then(r=>r.json());expect(details.payments).toHaveLength(1);expect(details.account.status).toBe('ABERTA');
+  await page.getByRole('button',{name:'Visualizar / imprimir guia',exact:true}).click();const guide=page.getByRole('region',{name:'Guia da mesa',exact:true});await expect(guide.getByTitle('Prévia da guia da mesa')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Receber e finalizar mesa',exact:true})).toBeEnabled();await expect(page.getByRole('dialog')).toHaveCount(0);
+  await command(page,'order.create',{accountId:account.id,items:[{productId:f.product.id,quantity:'1'}]});await expect(page.getByLabel('Valor a pagar (R$)',{exact:true})).toHaveValue('20.00',{timeout:12000});
+  await page.screenshot({path:'test-results/'+info.project.name+'-imprimir-e-receber.png',fullPage:true});
+  await page.getByRole('button',{name:'Receber e finalizar mesa',exact:true}).click();receipt=page.getByRole('dialog',{name:'Comprovante simples',exact:true});await expect(receipt).toBeVisible();
+  details=await page.request.get('/api/accounts/'+account.id).then(r=>r.json());expect(details.account.status).toBe('FECHADA');expect(details.payments).toHaveLength(2);expect(Number(details.payments[1].applied_amount)).toBe(20);
 });
 
 test('abertura simultânea explica caixa já aberto e conserva a sessão vencedora',async({page,playwright,baseURL},info)=>{
@@ -143,12 +316,15 @@ test('abertura simultânea explica caixa já aberto e conserva a sessão vencedo
 
 test.describe('APK exclusivo de atendimento',()=>{
   test.use({userAgent:'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36 BarDoZicoAndroid/0.2.3'});
+  test('escolhe categoria antes de produto no atendimento do celular',async({page,playwright,baseURL},info)=>{
+    const administrator=await playwright.request.newContext({baseURL,userAgent:'BarDoZicoDesktopE2E/0.2.3'});
+    try{await categoryProductFlow(page,administrator,info.project.name+' '+Date.now(),true);}finally{await administrator.dispose();}
+  });
   test('atende mesa e consulta cardápio enquanto a administração permanece no PC',async({page,playwright,baseURL},info)=>{
     const administrator=await playwright.request.newContext({baseURL,userAgent:'BarDoZicoDesktopE2E/0.2.3'});
     try{
       const suffix=info.project.name+' '+Date.now(),number='APK-'+Date.now().toString().slice(-8);
       const area=await apiCommand(administrator,'area.save',{name:'Atendimento '+suffix});
-      const table=await apiCommand(administrator,'table.save',{number,areaId:area.id});
       const category=await apiCommand(administrator,'category.save',{name:'Celular '+suffix});
       const name='Bebida APK '+suffix,product=await apiCommand(administrator,'product.save',{name,categoryId:category.id,price:'10',destination:'SEM_PREPARO',stockControlled:true,stockQuantity:'10',stockMinimum:'2'});
       await page.route('**/api/me',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Servidor temporariamente indisponível.'})}));
@@ -163,7 +339,7 @@ test.describe('APK exclusivo de atendimento',()=>{
       await expect(page.getByRole('heading',{name:'Mesas',exact:true})).toBeVisible();
       const me=await page.request.get('/api/me').then(r=>r.json());
       expect(me.deviceAccess).toBe(true);expect(me.accessMode).toBe('ATENDIMENTO');
-      expect(me.permissions.sort()).toEqual(['account.open','order.create']);
+      expect(me.permissions.sort()).toEqual(['account.open','order.create','table.create']);
       await expect(page.locator('.main-nav > button')).toHaveText(['Mesas','Cardápio']);
       const settingsLink=page.locator('.main-nav > a');
       await expect(settingsLink).toHaveText('Configurações');await expect(settingsLink).toHaveAttribute('href','bardozico://settings');
@@ -174,20 +350,41 @@ test.describe('APK exclusivo de atendimento',()=>{
         await page.keyboard.press('Shift+Tab');await expect(settingsLink).toBeFocused();
         await page.keyboard.press('Escape');await expect(menuButton).toBeFocused();
       }
-      for(const name of ['Caixa','Estoque','Funcionários','Configurações','Voltar à gestão do bar','Adicionar mesa'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
+      for(const name of ['Caixa','Estoque','Funcionários','Configurações','Voltar à gestão do bar'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
       await expect(page.getByText('Celular de atendimento',{exact:true})).toBeVisible();
       const denied=await page.request.post('/api/commands/terminal.save',{data:{name:'Não deve criar'},headers:{'X-Bar-Request':'1','Idempotency-Key':crypto.randomUUID()}});
       expect(denied.status()).toBe(403);
+      await page.getByRole('button',{name:'Adicionar mesa',exact:true}).click();
+      await page.getByRole('dialog').getByLabel('Número ou nome da mesa',{exact:true}).fill(number);
+      await page.getByRole('dialog').getByRole('button',{name:'Cancelar',exact:true}).click();
+      expect((await administrator.get('/api/state').then(r=>r.json())).tables.some((t:any)=>t.number===number)).toBe(false);
+      await page.getByRole('button',{name:'Adicionar mesa',exact:true}).click();
+      await page.getByRole('dialog').getByLabel('Número ou nome da mesa',{exact:true}).fill(number);
+      await page.getByRole('dialog').getByRole('combobox',{name:'Local da mesa',exact:true}).selectOption(area.id);
+      await page.getByRole('dialog').getByRole('button',{name:'Salvar mesa',exact:true}).click();
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      const createdState=await administrator.get('/api/state').then(r=>r.json()),table=createdState.tables.find((t:any)=>t.number===number);
+      expect(table).toBeTruthy();expect(table.area_id).toBe(area.id);expect(table.status).toBe('LIVRE');
+      await expect(page.getByRole('button',{name:'Editar mesa '+number,exact:true})).toHaveCount(0);
+      await expect(page.getByRole('button',{name:'Excluir mesa '+number,exact:true})).toHaveCount(0);
+      await page.getByRole('button',{name:'Adicionar mesa',exact:true}).click();
+      await page.getByRole('dialog').getByLabel('Número ou nome da mesa',{exact:true}).fill(number);
+      await page.getByRole('dialog').getByRole('button',{name:'Salvar mesa',exact:true}).click();
+      await expect(page.getByRole('dialog').getByRole('alert')).toContainText('Já existe uma mesa');
+      await page.getByRole('dialog').getByRole('button',{name:'Cancelar',exact:true}).click();
+      expect((await administrator.get('/api/state').then(r=>r.json())).tables.filter((t:any)=>t.number===number)).toHaveLength(1);
       await page.getByLabel('Buscar mesa',{exact:true}).fill(number);
       await page.getByRole('region',{name:'Mesa '+number,exact:true}).getByRole('button',{name:'Abrir mesa',exact:true}).click();
       await page.getByRole('button',{name:'Adicionar produto',exact:true}).click();
-      const dialog=page.getByRole('dialog');await dialog.getByRole('combobox',{name:'Produto',exact:true}).selectOption(product.id);
+      const dialog=page.getByRole('dialog');await dialog.getByRole('combobox',{name:'Categoria',exact:true}).selectOption(category.id);await dialog.getByRole('combobox',{name:'Produto',exact:true}).selectOption(product.id);
       await dialog.getByLabel('Quantidade',{exact:true}).fill('2');await dialog.getByRole('button',{name:'Adicionar à mesa',exact:true}).click();
       await expect(page.locator('.total-line')).toContainText('20,00');
       await expect(page.getByRole('button',{name:'Ir para o caixa',exact:true})).toHaveCount(0);
       await expect(page.getByRole('button',{name:'Remover '+name,exact:true})).toHaveCount(0);
       const desktopState=await administrator.get('/api/state').then(r=>r.json()),account=desktopState.accounts.find((a:any)=>a.table_id===table.id&&a.status==='ABERTA');
       expect(Number(account.total)).toBe(20);
+      await expect(page.getByRole('button',{name:'Imprimir guia da mesa',exact:true})).toHaveCount(0);
+      expect((await page.request.get('/api/accounts/'+account.id+'/guide.pdf')).status()).toBe(403);
       const desktopDetails=await administrator.get('/api/accounts/'+account.id).then(r=>r.json());
       expect(desktopDetails.items).toHaveLength(1);expect(Number(desktopDetails.items[0].quantity)).toBe(2);
       expect(Number(desktopState.products.find((p:any)=>p.id===product.id).stock_quantity)).toBe(8);

@@ -1,0 +1,27 @@
+unit: android-attendance-shell
+bindings:
+  - type: convention
+    name: "Android Activity lifecycle"
+    source_loc: apps/android/app/src/main/java/br/com/bardozico/android/MainActivity.java:18
+    target: MainActivity.onCreate
+    must_appear_in_target: true
+    notes: "Native shell owns settings, WebView security and retry UI."
+  - type: filter
+    name: "WebViewClient same-origin and TLS handlers"
+    source_loc: apps/android/app/src/main/java/br/com/bardozico/android/MainActivity.java:48
+    target: MainActivity
+    must_appear_in_target: true
+    notes: "Rejects cross-origin navigation, mixed content and certificate errors."
+runtime_config:
+  - key: BAR_ANDROID_URL
+    source_loc: apps/android/app/build.gradle:24
+    source: env
+    default_value: "https://192.168.0.8:8443"
+    must_appear_in_target: true
+    notes: "Operation flavor default server URL."
+  - key: BAR_ANDROID_TRAINING_URL
+    source_loc: apps/android/app/build.gradle:30
+    source: env
+    default_value: "https://192.168.0.8:18443"
+    must_appear_in_target: true
+    notes: "Training flavor default server URL."

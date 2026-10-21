@@ -3,8 +3,10 @@
 Aplicativo Java com WebView, projeto importável no Android Studio. Duas variantes:
 `operacao` e `treinamento`, com identificadores, armazenamento e nomes separados.
 As telas React são servidas pela API Java local do bar. Não há tela de login.
+Para testar o APK em uma janela do Windows, veja
+[Android virtual](../../docs/ANDROID-DE-TESTE.md).
 O **PC é administrador**; o **APK é de atendimento**, com Mesas e Cardápio para
-consultar, **Abrir mesa**, ver consumo e adicionar produtos. O menu também tem
+consultar, **Adicionar mesa**, **Abrir mesa**, ver consumo e adicionar produtos. O menu também tem
 **Configurações**, limitadas ao aplicativo e à conexão. Não recebe
 caixa, exclusões, equipe, estoque administrativo ou relatórios.
 

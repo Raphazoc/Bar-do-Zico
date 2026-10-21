@@ -1,0 +1,9 @@
+unit: web-adjustments
+bindings:
+  - type: convention
+    name: "Exported React components imported by Front"
+    source_loc: apps/web/src/Adjustments.tsx:5
+    target: "Areas, CashBalances, PermissionFields, AuditHistory, Sales"
+    must_appear_in_target: true
+    notes: "Component props carry state, permission checks and command callbacks."
+runtime_config: []
