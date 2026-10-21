@@ -20,6 +20,7 @@ spring:
       write-dates-as-timestamps: false
 bar:
   open-access: ${BAR_OPEN_ACCESS:true}
+  device-access: ${BAR_DEVICE_ACCESS:true}
   android-urls: ${BAR_ANDROID_URLS:}
   public-certificate: ${BAR_PUBLIC_CERTIFICATE:}
   backup-directory: ${BAR_BACKUP_DIRECTORY:}

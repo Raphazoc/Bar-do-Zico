@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties="bar.open-access=true") @AutoConfigureMockMvc
+@SpringBootTest(properties={"bar.open-access=true","bar.device-access=false"}) @AutoConfigureMockMvc
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class NewFrontTest {
     static final UUID UNIT=UUID.randomUUID();UUID owner;

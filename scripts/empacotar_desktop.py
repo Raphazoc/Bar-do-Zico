@@ -21,7 +21,7 @@ def main():
         if resolved!=expected or resolved.parent!=(ROOT/'output/app').resolve(): raise RuntimeError('Destino de pacote inválido.')
         archive=ROOT/'.tools/previous-builds';archive.mkdir(exist_ok=True)
         previous.rename(archive/('Bar do Zico-'+datetime.datetime.now().strftime('%Y%m%d-%H%M%S')))
-    subprocess.run([jpackage,'--type','app-image','--name','Bar do Zico','--icon',str(ROOT/'assets/icons/bar-do-zico.ico'),'--input',str(stage),'--main-jar','bar-desktop-0.1.0.jar','--main-class','br.com.bardozico.desktop.Launcher','--dest',str(output),'--app-version','0.1.0','--vendor','Bar do Zico','--add-modules','java.desktop,java.logging,java.net.http,java.scripting,java.xml,jdk.jsobject,jdk.unsupported,jdk.crypto.ec'],check=True,cwd=ROOT,env=java_environment())
+    subprocess.run([jpackage,'--type','app-image','--name','Bar do Zico','--icon',str(ROOT/'assets/icons/bar-do-zico.ico'),'--input',str(stage),'--main-jar','bar-desktop-0.1.0.jar','--main-class','br.com.bardozico.desktop.Launcher','--dest',str(output),'--app-version','0.2.2','--vendor','Bar do Zico','--add-modules','java.desktop,java.logging,java.net.http,java.scripting,java.xml,jdk.jsobject,jdk.unsupported,jdk.crypto.ec'],check=True,cwd=ROOT,env=java_environment())
     print('Programa Windows:',output/'Bar do Zico/Bar do Zico.exe')
 
 

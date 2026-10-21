@@ -13,10 +13,20 @@ from cadastrar_admin import ROOT,connection_settings
 from java_tools import java_tool,java_environment
 
 
+def stop_managed_service(saved):
+    """Só encerra a API deste projeto, conferindo a identidade do PID salvo."""
+    pid=int(saved['pid'])
+    env={**os.environ,'BAR_EXPECTED_RUNTIME':str((ROOT/'.tools/runtime-api').resolve())}
+    command=f"$p=Get-CimInstance Win32_Process -Filter 'ProcessId = {pid}'; if ($p) {{ if (!$p.CommandLine -or !$p.CommandLine.Contains($env:BAR_EXPECTED_RUNTIME) -or !$p.CommandLine.Contains('bar-api-0.1.0.jar')) {{ throw 'O PID salvo pertence a outro processo; ele foi preservado.' }}; Stop-Process -Id {pid} -ErrorAction Stop }}"
+    subprocess.run(['powershell','-NoProfile','-Command',command],env=env,check=True,capture_output=True)
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--sem-janela',action='store_true')
-    parser.add_argument('--rede-local',action='store_true')
+    network=parser.add_mutually_exclusive_group()
+    network.add_argument('--rede-local',action='store_true',default=True)
+    network.add_argument('--somente-computador',dest='rede_local',action='store_false')
     parser.add_argument('--parar',action='store_true')
     parser.add_argument('--treinamento',action='store_true')
     args=parser.parse_args()
@@ -28,10 +38,7 @@ def main():
             from backup_service import DIRECTORY
             if DIRECTORY.exists():(DIRECTORY/'stop').touch()
         if not saved: print('Nenhum serviço iniciado por este utilitário.');return
-        pid=int(saved['pid'])
-        # Conferir identidade antes de parar; não encerrar outro processo que reutilizou o PID.
-        command=f"$p=Get-CimInstance Win32_Process -Filter 'ProcessId = {pid}'; if ($p -and $p.CommandLine.Contains('bar-api-0.1.0.jar')) {{ Stop-Process -Id {pid} -ErrorAction Stop }}"
-        subprocess.run(['powershell','-NoProfile','-Command',command],check=True,capture_output=True)
+        stop_managed_service(saved)
         runtime.unlink();print('Serviço Java encerrado. Banco e dados preservados.');return
     settings=connection_settings()
     training=None
@@ -44,6 +51,11 @@ def main():
     env.pop('DEBUG',None)
     env.pop('SPRING_PROFILES_ACTIVE',None)
     env['BAR_TRAINING']='true' if args.treinamento else 'false'
+    env['BAR_OPEN_ACCESS']='true'
+    env['BAR_DEVICE_ACCESS']='true'
+    env['SERVER_FORWARD_HEADERS_STRATEGY']='NONE'
+    env['SERVER_ADDRESS']='0.0.0.0' if args.rede_local else '127.0.0.1'
+    env['BAR_ALLOWED_HOSTS']='127.0.0.1,localhost,::1'
     if training: env['BAR_UNIT_ID']=training['unit']
     env.update(DB_URL=f"jdbc:postgresql://127.0.0.1:{settings['port']}/{settings['dbname']}?currentSchema=bar",DB_USERNAME='bar_app',DB_PASSWORD=(tools/'docker-app-password.txt').read_text().strip())
     env['BAR_BACKUP_DIRECTORY']='' if args.treinamento else str(tools/'backups')
@@ -69,23 +81,24 @@ def main():
                 expected='TREINAMENTO' if args.treinamento else 'OPERACAO'
                 return info.get('application')=='bar-do-zico' and info.get('mode', 'OPERACAO')==expected
         except Exception: return False
-    if saved and saved.get('url')!=url:
-        old_context=ssl.create_default_context(cafile=str(tools/'tls/bar-ca.cer')) if saved['url'].startswith('https') else None
-        if healthy(saved['url'],old_context):
-            stop_command='Parar Treinamento.cmd' if args.treinamento else 'Parar Bar.cmd'
-            raise RuntimeError('Serviço está em outro modo. Abra '+stop_command+' antes de alternar entre computador e rede local.')
+    jar=ROOT/'apps/api/target/bar-api-0.1.0.jar'
+    if not jar.exists(): raise RuntimeError('Compile primeiro com scripts/compilar.ps1.')
+    build_hash=hashlib.sha256(jar.read_bytes()).hexdigest()[:16]
+    configuration={'url':url,'buildHash':build_hash,'addresses':env['BAR_ANDROID_URLS']}
+    if saved and any(saved.get(key)!=value for key,value in configuration.items()):
+        # Atualizações do programa, mudança de IP e alternância de modo exigem nova API.
+        stop_managed_service(saved)
+        runtime.unlink(missing_ok=True)
+        print('Serviço atualizado para o endereço e a versão atuais. Dados preservados.')
     if not healthy(url,context):
-        jar=ROOT/'apps/api/target/bar-api-0.1.0.jar'
-        if not jar.exists(): raise RuntimeError('Compile primeiro com scripts/compilar.ps1.')
         # Executar uma cópia evita bloquear o artefato de compilação no Windows.
-        build_hash=hashlib.sha256(jar.read_bytes()).hexdigest()[:16]
         deployed=tools/'runtime-api'/build_hash/'bar-api-0.1.0.jar'
         deployed.parent.mkdir(parents=True,exist_ok=True)
         if not deployed.exists(): shutil.copy2(jar,deployed)
         log=tools/'api.log'
         with log.open('ab') as stream:
             process=subprocess.Popen([java,'-jar',str(deployed)],cwd=ROOT,env=env,stdout=stream,stderr=subprocess.STDOUT,creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
-        runtime.write_text(json.dumps({'pid':process.pid,'url':url,'mode':'TREINAMENTO' if args.treinamento else 'OPERACAO'}),encoding='utf-8')
+        runtime.write_text(json.dumps({'pid':process.pid,**configuration,'mode':'TREINAMENTO' if args.treinamento else 'OPERACAO'}),encoding='utf-8')
         for _ in range(45):
             if healthy(url,context): break
             if process.poll() is not None: raise RuntimeError(f'Serviço não iniciou. Consulte {log}.')

@@ -1,5 +1,17 @@
 # Bar do Zico — computador e Android
 
+**Revisão atual:** [PC administrador, celular de atendimento e caixa com abertura zero](docs/PERFIS-PC-CELULAR.md).
+O programa do PC administra; o APK consulta mesas/cardápio, abre atendimento e
+adiciona produtos. No celular, toque em **Abrir mesa** para começar e use
+**Menu → Configurações → Conexão com o servidor** para ajustar o endereço.
+O APK passa para **0.2.3 (código 4)**; o programa do PC permanece em **0.2.2**.
+Nova abertura de caixa começa em R$ 0,00, editável; valores existentes são preservados.
+Revisão da rede: [rede residencial e próximo piloto Azure](docs/REVISAO-REDE-E-AZURE.md).
+Azure confirmado para futuro acesso por 4G/outras redes. Assinatura consultada e
+ativa, com zero recursos; ainda não há servidor remoto. O modo local permanece
+funcional e preserva o perfil Público do Windows. Não existe sincronização entre
+banco local e nuvem nesta versão.
+
 Programa Windows em Java 25, API Java local e PostgreSQL. O aplicativo Android
 instalável usa as mesmas telas pelo Wi-Fi do bar. A interface abre diretamente
 em **Mesas**, sem tela de login, conforme solicitado pelo proprietário.
@@ -24,8 +36,9 @@ Não há instalador MSI nesta entrega.
 
 ## Interface e funções
 
-O menu principal tem **Mesas, Caixa, Funcionários, Estoque e Cardápio**.
-No Android, o botão **Menu** dá acesso às áreas; registros usam blocos legíveis.
+O menu do PC tem **Mesas, Caixa, Funcionários, Estoque e Cardápio**.
+No Android, **Menu** reúne **Mesas, Cardápio e Configurações**. As configurações
+do aplicativo permitem ajustar a conexão; não dão acesso à gestão do bar.
 
 - Mesas: busca, situação, adicionar, editar, excluir permanentemente com confirmação e reutilizar o número.
 - Locais: edição e exclusão com transferência das mesas, inclusive ocupadas.
@@ -37,15 +50,16 @@ No Android, o botão **Menu** dá acesso às áreas; registros usam blocos legí
   e paginação; auditoria separada em Configurações, com nomes simples.
 - Funcionários: cadastro/edição sem e-mail ou senha, ativação, exclusão definitiva
   do cadastro com histórico preservado, perfis e permissões agrupadas.
-  O responsável do aparelho pode ser escolhido voluntariamente em Configurações.
+  O responsável de gestão do PC é fixo; o APK usa uma identidade interna de atendimento.
 - Estoque: quantidade, mínimo, busca/filtros/ordenação, entradas/saídas/ajustes,
   histórico, alertas, exclusão de produtos e baixa ao adicionar à mesa, com devolução quando aplicável.
 - Cardápio: preço, quantidade e disponibilidade no mesmo cadastro do estoque.
 - Configurações: endereços/QR para Android e backups com restauração de conferência.
 
 Os dados existentes foram preservados. Produtos antigos continuam sem controle
-numérico até a conferência manual. Sem login, os perfis organizam as funções do
-aparelho e não comprovam a identidade de quem o utiliza.
+numérico até a conferência manual. Sem login, a API separa administrador por
+conexão local real do PC e atendimento nas conexões de rede/Android; cookies
+antigos não concedem gestão ao celular. Os perfis não comprovam quem usa o aparelho.
 
 Internet externa não é necessária para o uso local depois da instalação.
 O computador e a rede local precisam funcionar. Sem contato com o computador,
@@ -58,13 +72,14 @@ impressão integrada, delivery ou controle de receitas/ingredientes nesta entreg
 
 | Arquivo | Uso |
 |---|---|
-| `Iniciar Bar.cmd` | Abre o programa e mantém o último modo da operação |
+| `Iniciar Bar.cmd` | Inicia HTTPS local para computador/celular e abre o programa |
 | `Iniciar Bar na Rede.cmd` | Operação em HTTPS para computador e celulares |
-| `Iniciar Treinamento.cmd` | Abre os exercícios e mantém seu último modo |
+| `Iniciar Treinamento.cmd` | Inicia treinamento em HTTPS local e abre o programa |
 | `Treinamento no Android.cmd` | Treinamento com HTTPS local |
 | `Parar Bar.cmd` / `Parar Treinamento.cmd` | Encerra apenas o serviço correspondente |
 | `Configurar Rede do Bar.cmd` | Regras locais do Java com confirmação administrativa do Windows |
 | `Verificar Rede.cmd` | Diagnóstico de rede sem alterar configurações |
+| `Verificar Azure.cmd` | Login Microsoft, quando necessário, e consulta dos recursos sem criar infraestrutura |
 | `Fazer Backup.cmd` | Cópia real com restauração em banco temporário |
 | `Configurar Backups.cmd` | Segunda pasta de cópias, fora do disco principal |
 | `Conferir Backup.cmd` | Verificação de uma cópia já existente |
@@ -78,7 +93,7 @@ no aparelho físico e o piloto no Wi-Fi do bar ainda devem ser acompanhados.
 
 - Computador/API: Java 25, JavaFX 25.0.1, Spring Boot 3.5.16 e Spring JDBC.
 - Interface: React, TypeScript e Vite; arquivos servidos localmente pela API.
-- Banco: PostgreSQL 17.11, 16 migrações versionadas Flyway, 37 tabelas incluindo
+- Banco: PostgreSQL 17.11, 17 migrações versionadas Flyway, 37 tabelas incluindo
   o histórico, 87 chaves estrangeiras e quatro views.
 - Android: Java/WebView, AGP 8.13.2, Gradle 8.13, compile/target SDK 35, API mínima 26.
   JDK 21 só para a compilação Android, sem alterar o Java 25 do computador/API.
@@ -108,12 +123,19 @@ Os testes de API/telas criam bancos descartáveis e preservam os dados do bar:
 .venv/Scripts/python.exe scripts/validar_aplicacao.py --treinamento --telas
 .venv/Scripts/python.exe scripts/validar_migracao_v15.py
 .venv/Scripts/python.exe scripts/validar_migracao_v16.py
+.venv/Scripts/python.exe scripts/validar_migracao_v17.py
 ```
 
 Use o JDK 25 selecionado por `scripts/ambiente.ps1` ou `scripts/java_tools.py`
-para executar os testes Java. Há 42 testes da API e 38 casos de interface entre
-computador e Android emulado. As verificações do pacote APK/Windows e do banco
-estão detalhadas no registro da entrega.
+para executar os testes Java. Nesta entrega passaram 77 testes Java/API/endereço
+e 50 casos de interface em navegador, nos tamanhos de computador e celular.
+Os testes unitários/lint Android, o executável JavaFX e a preservação dos dois
+bancos também foram conferidos. A instalação no Android físico permanece pendente;
+veja o [registro desta atualização](docs/PERFIS-PC-CELULAR.md).
+
+O modo de nuvem pode ser verificado localmente com
+`.venv/Scripts/python.exe scripts/validar_nuvem.py`, que cria e remove seu próprio
+banco de teste. Esse comando não publica recursos Azure.
 
 Referências: [arquitetura e retomada](docs/PLANO-DE-TRABALHO.md),
 [contratos da API](docs/API.md), [banco](docs/banco/README.md),

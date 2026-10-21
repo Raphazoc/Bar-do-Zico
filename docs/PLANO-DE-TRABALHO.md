@@ -1,5 +1,64 @@
 # Plano de trabalho — Bar do Zico
 
+## Ajuste Android atual — abrir mesa e configurações no menu (0.2.3)
+
+O APK passa para **0.2.3, código 4**, com a mesma assinatura. No atendimento,
+o botão da mesa livre será **Abrir mesa**; uma mesa em atendimento continua com
+**Ver consumo**. É o fluxo já existente de abertura de conta, sem outra etapa.
+**Conexão** sai do topo. O caminho passa a ser **Menu → Configurações → Conexão
+com o servidor**, abrindo as configurações nativas do aplicativo por
+`bardozico://settings`. Em erro de conexão há um atalho **Configurações**.
+Essa opção não expõe gestão nem altera o perfil limitado do celular.
+
+O executável do PC permanece **0.2.2**, como administrador. Esta revisão Android
+precisa de sua própria validação; as aprovações da versão 0.2.2 registradas
+abaixo são históricas. Instalar o novo APK por cima do anterior, sem limpar dados.
+
+## Direção atual — PC administrador e APK de atendimento (V17, 20/10/2026)
+
+O proprietário confirmou: **PROGRAMA NO PC: ADM; CELULAR: ATENDIMENTO**.
+O PC abre com gestão fixa por conexão real de loopback. O APK e as conexões pela
+rede consultam mesas/cardápio, abrem atendimento e adicionam produtos; não
+recebem caixa, exclusões ou gestão. A API aplica a restrição também a leituras
+e comandos, ignora cookies antigos nesse modo e usa o marcador Android somente
+para reduzir acesso. Sem login e sem escolha voluntária de responsável.
+
+Nova abertura de caixa começa em **R$ 0,00**, editável. Caixa existente deve ser
+conferido/usado, sem outra abertura. Valores e referências anteriores permanecem.
+V17 acrescenta a identidade interna de atendimento, sem editar V1–V16. Há
+17 migrações. A entrega anterior publicou Android **0.2.2, código 3**, com mesma
+assinatura; o ajuste atual 0.2.3 está descrito acima. Guia:
+[PERFIS-PC-CELULAR.md](PERFIS-PC-CELULAR.md).
+
+Na entrega 0.2.2, a migração V16 → V17 foi validada em banco preenchido descartável por
+`scripts/validar_migracao_v17.py`, preservando hashes das 36 tabelas e checksums.
+Validação desta entrega: 77 testes Java/API/endereço e 50 casos de interface
+aprovados, além de oito verificações unitárias Android e lint dos dois APKs.
+O executável 0.2.2 renderizou a tela no JavaFX 25; os dois serviços HTTPS foram
+conferidos como administrador no PC e atendimento pela rede. Backups anteriores
+à atualização foram verificados e os hashes de 36 tabelas em cada banco
+confirmaram a preservação dos dados existentes. Os registros abaixo conservam
+os resultados históricos.
+
+Próximo passo: conferir no Android físico o perfil de atendimento e no PC a
+gestão/caixa, preservando o perfil Público do Windows. Na rede residencial, PC e
+celular usam o mesmo roteador. Acesso por 4G/outra rede continua dependente do
+piloto Azure, autorização dos aparelhos e futura sincronização local/nuvem.
+
+## Direção confirmada mais recente — Azure e rede residencial
+
+O proprietário confirmou acesso também por 4G/outras redes, com **Azure** como
+nuvem. O perfil **Público** do Windows será mantido na conexão residencial.
+Consulte [REVISAO-REDE-E-AZURE.md](REVISAO-REDE-E-AZURE.md): assinatura ativa
+consultada, sem recursos criados; HTTPS residencial e APKs corrigidos/validados.
+
+Próximas fases: piloto Azure isolado com infraestrutura/custos avaliados;
+autorização dos aparelhos sem login diário; sincronização local/nuvem para
+quedas de internet; só depois ativação real acompanhada. A sincronização não
+existe hoje. Publicar um banco vazio no Azure não replica os dados do bar.
+Os detalhes antigos abaixo registram o desenvolvimento local e não comprovam
+publicação na nuvem. A revisão anterior de rede reuniu 58 testes Java/API e 40 de tela.
+
 Status: base funcional implementada e validada em ambiente de desenvolvimento.
 Interface simplificada para o uso diário, com exclusão visível de mesas
 e cadastro de funcionários sem e-mail. Validação no computador e no Android emulado.
@@ -8,7 +67,7 @@ O piloto com o proprietário e a configuração em celulares físicos permanecem
 **Direção mais recente:** novo front implementado conforme a referência visual e
 funcional do proprietário: **Mesas, Caixa, Funcionários, Estoque e Cardápio**.
 Abertura direta em Mesas, sem login. Aplicativos Android instaláveis em APK para
-operação e treinamento, com as mesmas telas pelo Wi-Fi. Consulte
+operação e treinamento, com a interface compartilhada e acesso restrito a atendimento pela V17. Consulte
 [NOVO-FRONT.md](NOVO-FRONT.md), [guia de uso](COMO-USAR-NOVO-FRONT.md) e
 [registro da entrega](ENTREGA-NOVO-FRONT.md).
 
@@ -90,7 +149,7 @@ ou funcionamento sem Wi-Fi antes de validar os requisitos dessas funções.
 Estado conferido nesta entrega:
 
 - [x] Banco PostgreSQL com 34 tabelas de negócio/referência, duas de infraestrutura,
-      quatro views e 16 migrações.
+      quatro views e 17 migrações.
 - [x] 31 testes de integridade e concorrência aprovados em PostgreSQL real.
 - [x] Docker Desktop e ferramentas Java/Maven preparados no Windows.
 - [x] Unidade Bar do Zico e administrador Raphael cadastrados.
@@ -168,8 +227,9 @@ Os arquivos das telas são incluídos na API; não há dependência de CDN no us
 
 As fases 0–5 abaixo registram a base construída anteriormente. A abertura
 sem login e o aplicativo Android instalável da entrega atual prevalecem sobre
-os critérios antigos de entrada e navegador. Não recolocar a tela de login
-sem uma nova solicitação do proprietário.
+os critérios antigos de entrada e navegador. A V17 substitui a escolha de
+responsável V13/V14 por PC administrador fixo e rede/APK de atendimento.
+Não recolocar login ou seleção de administrador no celular sem nova solicitação.
 
 ## Fase 0 — Preparar a retomada
 
@@ -470,9 +530,11 @@ confirmar rede, certificado e firewall. As partes implementadas das fases 2
 a 4 estão registradas na validação; concluir a homologação exige revisar as
 políticas reais de atendimento/caixa com o proprietário.
 
-## Registro de retomada
+## Registro histórico de retomada — V13/V14 (superado pela V17 acima)
 
-Atualizar ao finalizar cada sessão de implementação:
+O registro abaixo conserva a entrega anterior. Para a retomada atual, usar a
+direção V17 no início deste documento; seus números e fluxos antigos não
+comprovam a validação das alterações atuais.
 
 - **Última entrega:** novo front com cinco áreas, atendimento em tela própria,
   caixa organizado, funcionários sem credenciais, perfis/permissões e estoque

@@ -20,7 +20,7 @@ import org.springframework.beans.factory.annotation.Value;
 @Configuration
 class SecurityConfig {
     @Bean Argon2PasswordEncoder encoder() { return new Argon2PasswordEncoder(16,32,1,65536,3); }
-    @Bean SecurityFilterChain security(HttpSecurity http, Identity identity, ObjectMapper json,@Value("${bar.allowed-hosts}") String allowedHosts,@Value("${bar.training}") boolean training,@Value("${bar.open-access}") boolean openAccess) throws Exception {
+    @Bean SecurityFilterChain security(HttpSecurity http, Identity identity, DeviceAccess devices, ObjectMapper json,@Value("${bar.allowed-hosts}") String allowedHosts,@Value("${bar.training}") boolean training,@Value("${bar.open-access}") boolean openAccess) throws Exception {
         Set<String> hosts=new HashSet<>(Arrays.asList(allowedHosts.toLowerCase(Locale.ROOT).split(",")));
         // Todas as escritas exigem header não simples; nenhuma origem CORS é liberada.
         // A API usa sessão própria persistida, não a sessão de servlet.
@@ -45,8 +45,15 @@ class SecurityConfig {
                         if (origin!=null && !origin.equals(expected)) { fail(res,403,"Origem não permitida.",json); return; }
                         String token=null;
                         if (req.getCookies()!=null) for (var cookie:req.getCookies()) if (cookie.getName().equals(training?"BAR_TRAINING_SESSION":"BAR_SESSION")) token=cookie.getValue();
-                        Actor actor=identity.authenticate(token);
-                        if(actor==null && openAccess && !req.getRequestURI().equals("/api/login") && !req.getRequestURI().equals("/api/health")) {
+                        Actor actor=null;
+                        if(devices.enabled()&&!req.getRequestURI().equals("/api/health")) {
+                            if(Set.of("/api/login","/api/operator","/api/password").contains(req.getRequestURI())) {
+                                fail(res,403,"O perfil é definido pelo aparelho: administrador no PC e atendimento no celular.",json);return;
+                            }
+                            try{actor=devices.attendance(req)?identity.mobileOperator():identity.localOperator();}
+                            catch(ApiError e){fail(res,e.status,e.getMessage(),json);return;}
+                        } else actor=identity.authenticate(token);
+                        if(actor==null && openAccess && !devices.enabled() && !req.getRequestURI().equals("/api/login") && !req.getRequestURI().equals("/api/health")) {
                             try{actor=identity.localOperator();}catch(ApiError e){fail(res,e.status,e.getMessage(),json);return;}
                         }
                         if (actor!=null) {

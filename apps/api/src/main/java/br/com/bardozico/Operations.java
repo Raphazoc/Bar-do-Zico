@@ -46,6 +46,9 @@ class Operations {
         boolean staffChange=Set.of("staff.delete","staff.save","user.active","user.create","role.save").contains(operation);
         if(staffChange) {
             db.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",a.unit()+":staff-management");
+            UUID target=Set.of("staff.delete","user.active").contains(operation)?uuid(b,"userId"):(operation.equals("staff.save")&&b.hasNonNull("id")?uuid(b,"id"):null);
+            if(target!=null&&db.queryForObject("SELECT count(*) FROM bar.users WHERE establishment_id=? AND id=? AND system_attendant",Integer.class,a.unit(),target)>0)
+                throw ApiError.bad("Este cadastro é interno do atendimento no celular e não pode ser alterado.");
             if(db.queryForObject("SELECT count(*) FROM bar.users u WHERE u.establishment_id=? AND u.id=? AND u.active AND u.deleted_at IS NULL AND EXISTS (SELECT 1 FROM bar.user_roles ur JOIN bar.role_permissions rp ON (rp.establishment_id,rp.role_id)=(ur.establishment_id,ur.role_id) JOIN bar.permissions p ON p.id=rp.permission_id WHERE ur.establishment_id=u.establishment_id AND ur.user_id=u.id AND p.code='user.manage')",Integer.class,a.unit(),a.id())==0)
                 throw new ApiError(403,"Este responsável não está mais disponível. Reconecte o programa.");
         }
@@ -106,7 +109,7 @@ class Operations {
             }
             case "table.authorize" -> {
                 UUID user=uuid(b,"userId"),table=uuid(b,"tableId");
-                one("SELECT id FROM bar.users WHERE establishment_id=? AND id=? AND deleted_at IS NULL FOR SHARE",u,user);
+                one("SELECT id FROM bar.users WHERE establishment_id=? AND id=? AND deleted_at IS NULL AND NOT system_attendant FOR SHARE",u,user);
                 db.update("UPDATE bar.table_authorizations SET revoked_at=CURRENT_TIMESTAMP WHERE establishment_id=? AND user_id=? AND table_id=? AND revoked_at IS NULL",u,user,table);
                 if(b.path("authorized").asBoolean()) db.update("INSERT INTO bar.table_authorizations(id,establishment_id,user_id,table_id,granted_by) VALUES(?,?,?,?,?)",id,u,user,table,a.id());
             }
@@ -189,7 +192,9 @@ class Operations {
             case "terminal.save" -> save(b,"cash_terminals",id,u,Map.of("name",text(b,"name",100),"active",b.path("active").asBoolean(true)));
             case "cash.open" -> {
                 UUID terminal=uuid(b,"terminalId");one("SELECT id FROM bar.cash_terminals WHERE establishment_id=? AND id=? AND active FOR UPDATE",u,terminal);
-                db.update("INSERT INTO bar.cash_sessions(id,establishment_id,terminal_id,operator_id,opening_amount) VALUES(?,?,?,?,?)",id,u,terminal,a.id(),amount(b,"openingAmount",false));
+                if(db.queryForObject("SELECT count(*) FROM bar.cash_sessions WHERE establishment_id=? AND terminal_id=? AND status='ABERTA'",Integer.class,u,terminal)>0)
+                    throw new ApiError(409,"Este caixa já está aberto. Selecione o caixa em uso para conferir os valores.");
+                db.update("INSERT INTO bar.cash_sessions(id,establishment_id,terminal_id,operator_id,opening_amount) VALUES(?,?,?,?,?)",id,u,terminal,a.id(),b.hasNonNull("openingAmount")?amount(b,"openingAmount",false):BigDecimal.ZERO);
             }
             case "cash.move" -> {
                 UUID session=uuid(b,"sessionId");cash(a,session);
@@ -335,6 +340,11 @@ class Operations {
         return row;
     }
     private void tableAccess(Actor a,UUID table) {
+        if(a.attendanceOnly()) {
+            if(table==null||db.queryForObject("SELECT count(*) FROM bar.bar_tables WHERE establishment_id=? AND id=? AND active",Integer.class,a.unit(),table)==0)
+                throw new ApiError(403,"Mesa indisponível para atendimento.");
+            return;
+        }
         if(a.permissions().contains("table.manage")) return;
         if(table==null || db.queryForObject("SELECT count(*) FROM bar.table_authorizations WHERE establishment_id=? AND table_id=? AND user_id=? AND revoked_at IS NULL",Integer.class,a.unit(),table,a.id())==0) throw new ApiError(403,"Você não está autorizado a atender esta mesa.");
     }

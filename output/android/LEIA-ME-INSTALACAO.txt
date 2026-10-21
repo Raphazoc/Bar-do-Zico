@@ -1,0 +1,37 @@
+BAR DO ZICO - ANDROID 0.2.3 (CODIGO 4)
+
+PC: ADMINISTRADOR. CELULAR: ATENDIMENTO.
+No celular: Mesas, Cardapio e Configuracoes do aplicativo.
+Toque em Abrir mesa para iniciar, ou Ver consumo se ja houver atendimento.
+Adicione produtos na tela da mesa.
+Caixa, exclusoes, cadastros e configuracoes de gestao ficam no computador.
+O executavel do PC continua na versao 0.2.2, como administrador.
+
+Para praticar: Bar-do-Zico-Treinamento.apk
+Para usar os dados do bar: Bar-do-Zico.apk
+
+1. Copie o APK desejado para o celular usando um cabo USB.
+2. No celular, abra o aplicativo Arquivos ou Meus Arquivos.
+3. Toque no APK. Se solicitado, permita a instalacao por esse aplicativo.
+4. Toque em Instalar ou Atualizar. Pode instalar por cima da versao anterior.
+5. No PC, feche a janela antiga e reabra o atalho Bar do Zico
+   (ou Bar do Zico - Treinamento).
+6. Conecte o celular ao Wi-Fi do mesmo roteador do PC; o PC pode usar cabo.
+7. No APK, abra Menu > Configuracoes > Conexao com o servidor.
+   Copie o endereco mostrado em Configuracoes > Acesso pelo Android no PC.
+   Se a tela nao carregar, toque em Configuracoes no aviso de erro.
+
+O computador deve continuar ligado. O sistema abre sem login na rede local.
+O perfil Publico do Windows pode continuar como esta.
+Nao ha troca para administrador no APK; cookies antigos nao concedem gestao.
+O botao Conexao saiu do topo. Ajuste o endereco pelo menu Configuracoes.
+As configuracoes do APK nao dao acesso a gestao do bar.
+
+No PC, Abrir caixa comeca em R$ 0,00 e permite alterar o valor.
+Se ja estiver aberto, use Conferir caixa aberto > Usar caixa aberto.
+A atualizacao nao zera valores de caixas anteriores nem recebimentos.
+
+4G e Wi-Fi de outra casa ainda dependem da implantacao do servidor Azure.
+
+Nao desinstale o aplicativo nem limpe seus dados se houver envio pendente.
+O guia completo esta em COMO-INSTALAR.md, nesta mesma pasta.

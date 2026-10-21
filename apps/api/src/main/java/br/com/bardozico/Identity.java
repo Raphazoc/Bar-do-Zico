@@ -31,7 +31,7 @@ class Identity {
             SELECT u.id,u.name,u.email,u.username,s.id session_id FROM bar.app_sessions s
             JOIN bar.users u ON (u.establishment_id,u.id)=(s.establishment_id,s.user_id)
             WHERE s.token_hash=? AND s.establishment_id=? AND s.revoked_at IS NULL
-              AND s.expires_at>CURRENT_TIMESTAMP AND u.active
+              AND s.expires_at>CURRENT_TIMESTAMP AND u.active AND NOT u.system_attendant
             """,hash(token),unit);
         if(rows.isEmpty()) return null;
         var row=rows.getFirst(); UUID id=(UUID)row.get("id");
@@ -48,7 +48,7 @@ class Identity {
             JOIN bar.user_roles ur ON (ur.establishment_id,ur.user_id)=(u.establishment_id,u.id)
             JOIN bar.role_permissions rp ON (rp.establishment_id,rp.role_id)=(ur.establishment_id,ur.role_id)
             JOIN bar.permissions p ON p.id=rp.permission_id
-            WHERE u.establishment_id=? AND u.active AND p.code='user.manage' ORDER BY u.created_at,u.id LIMIT 1
+            WHERE u.establishment_id=? AND u.active AND NOT u.system_attendant AND p.code='user.manage' ORDER BY u.created_at,u.id LIMIT 1
             """,unit);
         if(rows.isEmpty()) throw new ApiError(503,"O responsável pelo bar precisa ser configurado no computador.");
         var row=rows.getFirst();UUID id=(UUID)row.get("id");
@@ -57,8 +57,27 @@ class Identity {
     private Set<String> permissions(UUID id) {
         return new HashSet<>(db.queryForList("SELECT DISTINCT p.code FROM bar.user_roles ur JOIN bar.role_permissions rp ON (rp.establishment_id,rp.role_id)=(ur.establishment_id,ur.role_id) JOIN bar.permissions p ON p.id=rp.permission_id WHERE ur.establishment_id=? AND ur.user_id=?",String.class,unit,id));
     }
+    Actor mobileOperator() {
+        return tx.execute(status->{
+            db.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",unit+":mobile-operator");
+            if(db.queryForObject("SELECT count(*) FROM bar.establishments WHERE id=?",Integer.class,unit)==0)
+                throw new ApiError(503,"O bar precisa ser configurado no computador.");
+            var users=db.queryForList("SELECT id,active,deleted_at FROM bar.users WHERE establishment_id=? AND system_attendant FOR UPDATE",unit);
+            UUID id;
+            if(users.isEmpty()) {
+                id=UUID.randomUUID();
+                db.update("INSERT INTO bar.users(id,establishment_id,name,password_hash,system_attendant) VALUES(?,?,'Atendimento do celular',?,true)",id,unit,"!sem-login-no-aparelho!"+UUID.randomUUID());
+            } else {
+                var user=users.getFirst();
+                if(!Boolean.TRUE.equals(user.get("active"))||user.get("deleted_at")!=null)
+                    throw new ApiError(503,"O acesso de atendimento precisa ser conferido no computador.");
+                id=(UUID)user.get("id");
+            }
+            return new Actor(id,unit,null,"Atendimento do celular",null,null,Set.of("account.open","order.create"),true);
+        });
+    }
     String selectOperator(UUID user) {
-        if(db.queryForObject("SELECT count(*) FROM bar.users WHERE establishment_id=? AND id=? AND active",Integer.class,unit,user)==0) throw ApiError.bad("Funcionário indisponível.");
+        if(db.queryForObject("SELECT count(*) FROM bar.users WHERE establishment_id=? AND id=? AND active AND NOT system_attendant",Integer.class,unit,user)==0) throw ApiError.bad("Funcionário indisponível.");
         byte[] bytes=new byte[32];new SecureRandom().nextBytes(bytes);String token=HexFormat.of().formatHex(bytes);
         tx.executeWithoutResult(status->{
             var current=db.queryForMap("SELECT active FROM bar.users WHERE establishment_id=? AND id=? FOR UPDATE",unit,user);
@@ -71,7 +90,7 @@ class Identity {
     String login(String username,String password,String ip) {
         if(username==null || password==null || username.length()>254 || password.length()>256) throw new ApiError(401,"Usuário ou senha incorretos.");
         username=username.strip().toLowerCase(Locale.ROOT);
-        var users=db.queryForList("SELECT id,password_hash,active FROM bar.users WHERE establishment_id=? AND (username=? OR email=?)",unit,username,username);
+        var users=db.queryForList("SELECT id,password_hash,active FROM bar.users WHERE establishment_id=? AND NOT system_attendant AND (username=? OR email=?)",unit,username,username);
         // Os dois nomes de entrada da mesma pessoa compartilham o limite.
         String accountKey=hash(unit+":"+(users.isEmpty()?"login:"+username:"user:"+users.getFirst().get("id"))),sourceKey=hash("ip:"+ip);
         // Cada tentativa é reservada/confirmada antes de calcular Argon2, inclusive falhas.

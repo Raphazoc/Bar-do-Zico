@@ -11,8 +11,8 @@ import java.util.*;
 @RestController
 @RequestMapping("/api")
 class IdentityController {
-    private final Identity identity; private final JdbcTemplate db; private final boolean secure; private final boolean training; private final boolean openAccess;
-    IdentityController(Identity identity,JdbcTemplate db,@Value("${bar.secure-cookie}") boolean secure,@Value("${bar.training}") boolean training,@Value("${bar.open-access}") boolean openAccess) { this.identity=identity;this.db=db;this.secure=secure;this.training=training;this.openAccess=openAccess; }
+    private final Identity identity; private final JdbcTemplate db; private final boolean secure; private final boolean training; private final boolean openAccess;private final DeviceAccess devices;
+    IdentityController(Identity identity,JdbcTemplate db,DeviceAccess devices,@Value("${bar.secure-cookie}") boolean secure,@Value("${bar.training}") boolean training,@Value("${bar.open-access}") boolean openAccess) { this.identity=identity;this.db=db;this.devices=devices;this.secure=secure;this.training=training;this.openAccess=openAccess; }
     record Login(String username,String email,String password) { }
     record Password(String currentPassword,String newPassword) { }
     record Operator(UUID userId) { }
@@ -34,6 +34,7 @@ class IdentityController {
         var out=new LinkedHashMap<String,Object>();
         out.put("id",a.id());out.put("name",a.name());out.put("email",a.email());out.put("username",a.username());
         out.put("permissions",a.permissions());out.put("unit",unit);out.put("training",training);out.put("openAccess",openAccess);
+        out.put("deviceAccess",devices.enabled());out.put("accessMode",a.attendanceOnly()?"ATENDIMENTO":"ADMINISTRADOR");
         return out;
     }
     @PostMapping("/logout") ResponseEntity<?> logout(@AuthenticationPrincipal Actor a) {

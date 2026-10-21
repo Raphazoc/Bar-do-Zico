@@ -5,6 +5,37 @@ fonte de verdade do modelo. JDBC foi usado para coordenar explicitamente os
 bloqueios, views e transações já definidos; JPA não foi introduzido nesta entrega.
 A API não altera o schema. Flyway aplica as migrações separadamente.
 
+## Atualização V17 — PC administrador e celular de atendimento
+
+O modo local padrão combina `BAR_OPEN_ACCESS=true` e `BAR_DEVICE_ACCESS=true`.
+`GET /api/me` informa `deviceAccess` e `accessMode`: `ADMINISTRADOR` no programa
+do PC conectado por loopback real, `ATENDIMENTO` no APK e demais conexões de rede.
+O responsável administrativo é fixo; cookies anteriores de login/seleção não
+mudam o perfil determinado pela conexão. `/operator`, login e senha não são
+caminhos de elevação nesse modo. Não há tela de login.
+
+A confiança local usa `request.getRemoteAddr()` (`127.0.0.0/8` ou `::1`), sem
+interpretar Host ou headers de encaminhamento como prova de administração.
+O marcador `BarDoZicoAndroid/0.2.2` no User-Agent somente reduz acesso para
+atendimento, inclusive se a conexão chegar por loopback em testes/ADB.
+`server.forward-headers-strategy=NONE` é obrigatório com perfis locais por
+aparelho; acesso remoto por proxy exige a política autenticada do futuro piloto
+Azure, ainda não implantado.
+
+Atendimento pode consultar mesas e cardápio, abrir contas e adicionar produtos.
+Leituras omitem gestão, caixa, equipe, relatórios, histórico de alterações e
+outros dados administrativos; comandos de gestão/remoção/pagamento são negados
+pela API, mesmo que alguém tente chamá-los sem os botões da interface.
+Usa identidade interna com `users.system_attendant=true`, sem username/e-mail,
+oculta nos cadastros e seletores. O default nos registros antigos é `false`;
+check impede identificadores de login e índice único limita a uma por unidade.
+Permissões de atendimento são restritas no servidor, sem editar os perfis antigos.
+
+`cash.open` continua aceitando `openingAmount` não negativo. O formulário inicia
+em `0`, editável. Caixas já abertos são apresentados para conferência/uso, sem
+nova abertura ou reescrita do valor anterior. Históricos e saldos são preservados.
+Guia: [PERFIS-PC-CELULAR.md](PERFIS-PC-CELULAR.md).
+
 ## Atualização V16 — locais, funcionários, resumo do caixa e vendas por mesa
 
 - `area.delete`: `{areaId,destinationAreaId?}`, permissão `table.manage`.
@@ -48,9 +79,13 @@ A API não altera o schema. Flyway aplica as migrações separadamente.
 - Comandos mantêm unidade, permissão, auditoria, transação e idempotência.
   Os endpoints antigos de produção permanecem por compatibilidade, fora do novo front.
 
-## Atualização V13/V14 — novo front e operação sem login
+## Histórico V13/V14 — novo front e operação sem login (seleção superada pela V17)
 
-O modo normal usa `bar.open-access=true` (variável `BAR_OPEN_ACCESS`), com abertura
+O comportamento abaixo registra a implementação anterior; a separação fixa por
+aparelho da V17 prevalece no modo local atual. Com `BAR_DEVICE_ACCESS=false`,
+o contrato legado de seleção continua disponível para compatibilidade.
+
+O modo anterior usa `bar.open-access=true` (variável `BAR_OPEN_ACCESS`), com abertura
 direta. Sem cookie, a API associa a operação ao primeiro responsável ativo da
 unidade configurada com `user.manage`. Não cria usuários, redefine senhas ou
 mistura unidades. `GET /api/me` informa `openAccess`. `POST /api/operator` aceita
@@ -124,7 +159,12 @@ de fechamento; recebimentos e devoluções usam as próprias datas. Não são um
 livro fiscal. As telas de histórico carregam lotes limitados; relatórios por período
 consultam os registros completos correspondentes.
 
-## Autenticação
+## Autenticação legada e modo com sessão
+
+Esta seção descreve o contrato preservado para `BAR_OPEN_ACCESS=false` e os
+testes de compatibilidade. No modo local padrão, prevalece a V17 acima:
+sem login, PC administrador fixo e rede/APK apenas atendimento, independentemente
+de cookies antigos.
 
 A unidade é configurada no serviço por `BAR_UNIT_ID`, sem aceitar uma unidade
 arbitrária enviada pelo cliente. Cada requisição revalida usuário ativo, sessão
@@ -181,7 +221,7 @@ Alterar o corpo com a mesma chave retorna conflito. A resposta confirmada é
 | `account.adjust` | `account.adjust` | Conta, tipo, valor ou taxa, motivo; `reversesId` para compensar |
 | `order.create` | `order.create` | Conta, itens com produto/quantidade/complementos e observações |
 | `item.status`, `item.cancel` | `production.update` / `order.cancel` | Item, próximo estado ou motivo/destino físico |
-| `terminal.save`, `cash.open` | `cash.open` | Terminal ou valor de abertura |
+| `terminal.save`, `cash.open` | `cash.open` | Terminal ou `openingAmount`; nova abertura na interface inicia em zero, editável |
 | `cash.move` | `cash.move` | Turno, tipo, valor e motivo |
 | `cash.close`, `cash.correct` | `cash.close` | Turno e contagem das seis formas; correção referencia fechamento anterior |
 | `payment.receive` | `payment.receive` | Conta, turno, forma, valor aplicado e entregue; exige também `account.close` ao quitar |
@@ -194,7 +234,11 @@ cria um novo registro. Valores são parametrizados; tabelas e colunas vêm de
 listas fixas no servidor. Consulte os tipos das telas e `Operations.java` para
 o contrato completo de cada corpo.
 
-### Funcionários sem e-mail obrigatório
+### Cadastro legado com credenciais
+
+O novo front usa `staff.save`, sem exigir credenciais. O contrato `user.create`
+abaixo é preservado para compatibilidade; desde V14 o banco permite também
+cadastros sem ambos os identificadores.
 
 `user.create` recebe `name`, `username`, `password` e `role`. Perfis iniciais:
 `ATENDIMENTO`, `PRODUCAO`, `CAIXA` e `ADMINISTRADOR`. `username` é único na
@@ -204,8 +248,9 @@ nas pontas e converte para minúsculas. Duplicidade de usuário ou e-mail retorn
 HTTP 409 com uma mensagem explicativa.
 
 `email` é opcional. Para compatibilidade, cadastro antigo contendo apenas um
-e-mail válido como identificador continua aceito. O banco exige ao menos um dos
-dois identificadores; não são gravados e-mails fictícios para funcionários.
+e-mail válido como identificador continua aceito. Esse comando legado exige um
+identificador; a regra não se aplica a `staff.save` ou à identidade interna V17.
+Não são gravados e-mails fictícios para funcionários.
 Respostas e auditoria não incluem senha nem hash de senha.
 
 `allTables` é um booleano opcional, com padrão `false`. Em `ATENDIMENTO`, quando
@@ -214,7 +259,12 @@ do usuário e perfil. Não libera mesas criadas depois nem altera outros usuári
 Para outros perfis, a opção não concede autorizações. A tela de funcionários
 oferece a opção de liberação inicial e permite ajustar os acessos depois.
 
-### Excluir e restaurar mesas
+### Histórico V12 — exclusão lógica e restauração de mesas (superado pela V15)
+
+O contrato abaixo é histórico. Atualmente `table.delete` remove a mesa livre
+permanentemente, libera seu número e preserva os nomes nas contas antigas,
+conforme a atualização V15 no início deste documento. Não orientar restauração
+de mesa excluída no programa atual.
 
 `table.delete` recebe `{"tableId":"uuid"}` no endpoint de comandos, com a
 mesma chave de idempotência dos demais comandos. A exclusão marca `active=false`;

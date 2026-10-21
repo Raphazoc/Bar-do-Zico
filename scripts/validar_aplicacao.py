@@ -11,6 +11,7 @@ from uuid import uuid4
 import psycopg
 from psycopg import sql
 from cadastrar_admin import ROOT,connection_settings
+from java_tools import java_environment,java_tool
 
 
 def main():
@@ -23,7 +24,7 @@ def main():
     admin=psycopg.connect(**{**settings,'dbname':'postgres'},autocommit=True)
     try:
         admin.execute(sql.SQL('CREATE DATABASE {}').format(sql.Identifier(database)));created=True
-        env=os.environ.copy();env.pop('DEBUG',None);env.update(FLYWAY_URL=f"jdbc:postgresql://127.0.0.1:{settings['port']}/{database}",FLYWAY_USER=settings['user'],FLYWAY_PASSWORD=settings['password'],FLYWAY_SCHEMAS='bar',FLYWAY_DEFAULT_SCHEMA='bar',FLYWAY_CLEAN_DISABLED='true',FLYWAY_LOCATIONS='filesystem:'+str(ROOT/'apps/api/src/main/resources/db/migration').replace('\\','/'))
+        env=java_environment();env.pop('DEBUG',None);env.pop('SPRING_PROFILES_ACTIVE',None);env.pop('SERVER_PORT',None);env.update(FLYWAY_URL=f"jdbc:postgresql://127.0.0.1:{settings['port']}/{database}",FLYWAY_USER=settings['user'],FLYWAY_PASSWORD=settings['password'],FLYWAY_SCHEMAS='bar',FLYWAY_DEFAULT_SCHEMA='bar',FLYWAY_CLEAN_DISABLED='true',FLYWAY_LOCATIONS='filesystem:'+str(ROOT/'apps/api/src/main/resources/db/migration').replace('\\','/'))
         subprocess.run([str(ROOT/'.tools/flyway-13.10.3/flyway.cmd'),'migrate'],cwd=ROOT,env=env,check=True)
         with psycopg.connect(**{**settings,'dbname':database}) as c:
             c.execute('GRANT USAGE ON SCHEMA bar TO bar_app')
@@ -55,13 +56,13 @@ def validate_web(settings,database,env):
         c.execute("INSERT INTO bar.roles(id,establishment_id,name) VALUES(%s,%s,'Administrador de teste')",(role,unit))
         c.execute('INSERT INTO bar.user_roles(establishment_id,user_id,role_id) VALUES(%s,%s,%s)',(unit,user,role))
         c.execute('INSERT INTO bar.role_permissions(establishment_id,role_id,permission_id) SELECT %s,%s,id FROM bar.permissions',(unit,role))
-    env.update(BAR_UNIT_ID=str(unit),BAR_PORT='18080',BAR_BIND='127.0.0.1',BAR_E2E_URL='http://127.0.0.1:18080',BAR_E2E_EMAIL=email,BAR_E2E_PASSWORD=password,PLAYWRIGHT_BROWSERS_PATH=str(ROOT/'.tools/ms-playwright'))
+    env.update(BAR_UNIT_ID=str(unit),BAR_PORT='18080',BAR_BIND='127.0.0.1',BAR_DEVICE_ACCESS='true',SERVER_FORWARD_HEADERS_STRATEGY='NONE',BAR_E2E_URL='http://127.0.0.1:18080',BAR_E2E_EMAIL=email,BAR_E2E_PASSWORD=password,PLAYWRIGHT_BROWSERS_PATH=str(ROOT/'.tools/ms-playwright'))
     env['BAR_ANDROID_URLS']='https://192.168.0.8:'+('18443' if env.get('BAR_TRAINING')=='true' else '8443')
     env['BAR_BACKUP_DIRECTORY']=''
     env.pop('SPRING_PROFILES_ACTIVE',None)
     node=Path((ROOT/'.tools/node-path.txt').read_text().strip());env['PATH']=str(node)+os.pathsep+env['PATH']
     with (ROOT/'.tools/api-e2e.log').open('wb') as log:
-        process=subprocess.Popen([shutil.which('java'),'-jar',str(ROOT/'apps/api/target/bar-api-0.1.0.jar')],cwd=ROOT,env=env,stdout=log,stderr=subprocess.STDOUT,creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
+        process=subprocess.Popen([java_tool('java'),'-jar',str(ROOT/'apps/api/target/bar-api-0.1.0.jar')],cwd=ROOT,env=env,stdout=log,stderr=subprocess.STDOUT,creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
     try:
         for _ in range(45):
             if process.poll() is not None: raise RuntimeError('API de teste não iniciou. Consulte .tools/api-e2e.log.')

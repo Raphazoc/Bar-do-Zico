@@ -20,7 +20,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import java.nio.file.*;
 
-@SpringBootTest(properties="bar.android-urls=https://192.168.0.8:18443")
+@SpringBootTest(properties="bar.android-urls=https://192.168.0.8:18443,https://192.168.0.8:8443,https://bar-api.example.azurecontainerapps.io")
 @AutoConfigureMockMvc
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @EnabledIfEnvironmentVariable(named="BAR_TEST_DATABASE",matches="true")
@@ -307,7 +307,9 @@ class ApplicationTest {
         mvc.perform(post("/api/setup/backup").cookie(cookie).header("X-Bar-Request","1")).andExpect(status().isForbidden());
     }
     @Test void qrAndCertificateAreRestrictedToConfiguredSources() throws Exception {
+        mvc.perform(get("/api/setup/qr").cookie(cookie).param("address","https://192.168.0.8:8443")).andExpect(status().isOk()).andExpect(content().contentTypeCompatibleWith("image/svg+xml"));
         mvc.perform(get("/api/setup/qr").cookie(cookie).param("address","https://192.168.0.8:18443")).andExpect(status().isOk()).andExpect(content().contentTypeCompatibleWith("image/svg+xml"));
+        mvc.perform(get("/api/setup/qr").cookie(cookie).param("address","https://bar-api.example.azurecontainerapps.io")).andExpect(status().isOk()).andExpect(content().contentTypeCompatibleWith("image/svg+xml"));
         mvc.perform(get("/api/setup/qr").cookie(cookie).param("address","https://outside.example")).andExpect(status().isBadRequest());
         mvc.perform(get("/api/setup/certificate").cookie(cookie)).andExpect(status().isOk()).andExpect(content().string("TEST PUBLIC CERTIFICATE"));
     }

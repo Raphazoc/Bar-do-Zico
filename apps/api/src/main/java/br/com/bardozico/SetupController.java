@@ -10,6 +10,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import java.nio.file.*;
 import java.time.*;
+import java.net.URI;
 import java.util.*;
 
 @RestController
@@ -21,9 +22,22 @@ class SetupController {
             @Value("${bar.public-certificate}") String certificate,@Value("${bar.backup-directory}") String backups,
             @Value("${bar.training}") boolean training) {
         this.db=db;this.json=json;this.training=training;
-        this.addresses=Arrays.stream(urls.split(",")).filter(s->s.matches("https://[0-9.]+:[0-9]+") && s.length()<100).toList();
+        this.addresses=Arrays.stream(urls.split(",")).map(String::trim).filter(SetupController::validAddress).distinct().toList();
         this.certificate=certificate.isBlank()?null:Path.of(certificate);
         this.backups=backups.isBlank()||training?null:Path.of(backups);
+    }
+    static boolean validAddress(String value) {
+        if(value.length()>200) return false;
+        try {
+            URI uri=URI.create(value);
+            return "https".equalsIgnoreCase(uri.getScheme())
+                && uri.getHost()!=null
+                && uri.getRawUserInfo()==null
+                && (uri.getPath()==null||uri.getPath().isEmpty()||uri.getPath().equals("/"))
+                && uri.getRawQuery()==null
+                && uri.getRawFragment()==null
+                && Set.of(-1,443,8443,18443).contains(uri.getPort());
+        } catch(IllegalArgumentException e) { return false; }
     }
     @GetMapping Map<String,Object> setup(@AuthenticationPrincipal Actor actor) {
         actor.require("user.manage");var out=new LinkedHashMap<String,Object>();
@@ -55,7 +69,7 @@ class SetupController {
         catch(Exception e) {return Map.of();}
     }
     @GetMapping(value="/qr",produces="image/svg+xml") String qr(@AuthenticationPrincipal Actor actor,@RequestParam String address) throws Exception {
-        actor.require("user.manage");if(!addresses.contains(address))throw ApiError.bad("Escolha um dos endereços locais informados pelo sistema.");
+        actor.require("user.manage");if(!addresses.contains(address))throw ApiError.bad("Escolha um dos endereços informados pelo sistema.");
         var matrix=new QRCodeWriter().encode(address,BarcodeFormat.QR_CODE,256,256);
         var svg=new StringBuilder("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 256 256\"><rect width=\"256\" height=\"256\" fill=\"white\"/><path fill=\"black\" d=\"");
         for(int y=0;y<256;y++)for(int x=0;x<256;x++)if(matrix.get(x,y))svg.append('M').append(x).append(' ').append(y).append("h1v1h-1z");

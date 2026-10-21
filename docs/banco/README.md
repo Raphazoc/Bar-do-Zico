@@ -19,14 +19,36 @@ este projeto gera sua própria representação a partir do banco implementado.
 Total do modelo inicial: 33 tabelas operacionais/de referência. V11 acrescentou
 `app_sessions` e `login_attempts` para autenticação local. V13 acrescentou `stock_movements`: são 36 tabelas mais
 `flyway_schema_history`, gerenciada pelo Flyway. O banco atual tem 87 chaves
-estrangeiras, quatro views e 16 migrações versionadas. Compras, receitas,
+estrangeiras, quatro views e 17 migrações versionadas. Compras, receitas,
 ingredientes e integrações permanecem fora desta entrega.
 
 A migração **V12 — `simple_staff_login_and_archived_tables`** acrescenta
 `users.username` e `bar_tables.active`, sem criar tabelas ou alterar V1–V11.
-Ela permite cadastrar funcionários sem e-mail e retirar mesas do salão sem
-apagar o histórico. As migrações devem ser aplicadas antes de iniciar a versão
+Ela permitia retirar mesas do salão sem apagar o histórico; a exclusão lógica
+foi substituída pela exclusão permanente V15. V14 permite cadastros sem os dois
+identificadores. As migrações devem ser aplicadas antes de iniciar a versão
 da API que consulta essas colunas.
+
+## V17 — identidade interna do atendimento
+
+`users.system_attendant` é `NOT NULL DEFAULT false`: pessoas e cadastros antigos
+permanecem sem alterações nos seus campos anteriores. A identidade interna do
+APK usa `true`, não tem e-mail nem username (check no banco) e é única por
+unidade (índice parcial). A API não a mostra como funcionário editável, não a
+aceita em login/seleção de responsável e limita suas permissões a atendimento.
+
+No modo local padrão, o PC conectado por loopback real é administrador; APK e
+conexões da rede recebem atendimento. Cookies anteriores não substituem essa
+decisão. Não há login nas telas; seleção voluntária de responsável da V13/V14
+foi superada por esse perfil fixo. Ver [perfis PC/celular](../PERFIS-PC-CELULAR.md).
+O padrão de nova abertura do caixa na interface é zero, editável; V17 não muda
+`cash_sessions.opening_amount` nem reescreve recebimentos ou saldos existentes.
+
+`scripts/validar_migracao_v17.py` foi executado em banco V16 preenchido e
+descartável: hashes das 36 tabelas e checksums V1–V16 preservados, com usuário
+normal/excluído, conta histórica e caixa com abertura positiva. Também valida
+default false, ausência de identificadores e unicidade por unidade. O banco
+temporário é removido; operação e treinamento não são usados como teste.
 
 ## V16 — exclusão de funcionários e índices dos relatórios
 
@@ -91,8 +113,8 @@ conforme solicitado pelo proprietário. Ver [API.md](../API.md).
 
 - Uma conta ativa por mesa; uma sessão aberta por terminal; uma autorização ativa por par usuário/mesa.
 - `users.username` é opcional para contas antigas e único por unidade quando preenchido. Tem de 2 a 40 caracteres em minúsculas, com letras sem acento, números, ponto, traço ou sublinhado, começando por letra ou número.
-- `users.email` pode ser nulo; ao menos `username` ou `email` deve existir. E-mails existentes, hashes e sessões não são redefinidos pela V12.
-- Mesas têm `active=true` por padrão. Retirada do salão usa `active=false`, mantém o número reservado e preserva contas, pedidos, pagamentos e autorizações.
+- `users.email` e `users.username` podem ser nulos desde V14. Quando `system_attendant=true` (V17), ambos devem ser nulos e só pode existir uma identidade interna por unidade. Credenciais antigas são preservadas.
+- Mesas têm `active=true` por padrão. Desde V15, `table.delete` remove a mesa livre fisicamente, libera o número e conserva nomes históricos nas contas; retirada lógica e restauração V12 são históricas.
 - Mesa retirada não pode ter estado ocupado/reservado/aguardando pagamento ou conta aberta/em fechamento; uma conta ativa não pode apontar para uma mesa retirada. Triggers serializam abertura e retirada pela linha da mesa.
 - Sem FK entre unidades diferentes. A proteção não substitui filtros de leitura, autorização HTTP ou RLS; RLS não foi introduzido nesta etapa.
 - Preço, descrição, quantidade, destino, impostos e complementos vendidos preservados após alteração do catálogo.
@@ -149,7 +171,9 @@ tabelas de dispositivos/refresh do modelo original permanecem reservadas;
 a primeira autenticação usa `app_sessions`, com expiração fixa e revogação,
 sem renovação por refresh token. Consulte [API.md](../API.md).
 
-O serviço aceita usuário simples ou e-mail antigo para entrar. No cadastro de
+O contrato legado com sessão aceita usuário simples ou e-mail antigo para entrar;
+ele não é usado para trocar o perfil fixo PC/APK no modo local padrão V17.
+No cadastro legado de
 funcionários, a senha tem mínimo de 4 caracteres; no perfil `ADMINISTRADOR`, 6.
 A troca exige mínimo de 6 para quem possui `user.manage` e 4 para os demais,
 sempre com máximo de 128. Essas regras pertencem ao serviço, que grava somente
@@ -159,13 +183,11 @@ o hash Argon2id e revoga sessões na troca; o banco não recebe a senha em texto
 e autorizações das mesas ativas existentes são confirmados juntos. O padrão é
 `false`; não libera mesas futuras nem muda a autorização de outras pessoas.
 
-`table.delete` exige `table.manage` e aplica retirada lógica, com idempotência,
-auditoria e outbox na mesma transação. A rotina bloqueia a mesa, verifica estado
-e existência de contas ativas sem bloquear contas; não inverte a ordem financeira.
-`table.save` com `active:true` restaura explicitamente uma mesa. Se `active` for
-omitido na edição, preserva a atividade; `active:false` é reservado a
-`table.delete`. Leituras de histórico mantêm mesas retiradas e o atendimento
-filtra apenas as ativas.
+`table.delete` exige `table.manage` e, desde V15, exclui permanentemente uma mesa
+livre, com idempotência, auditoria e outbox na mesma transação. A rotina bloqueia
+a mesa, verifica estado e contas ativas sem bloquear contas; não inverte a ordem
+financeira. Não há restauração do identificador excluído; o número pode ser usado
+em novo cadastro. Contas e autorizações antigas preservam o nome por snapshot.
 
 1. Abrir conta e ocupar mesa na mesma transação; controlar estados do salão.
 2. Validar usuário, perfil, autorização de mesa e disponibilidade; congelar o preço vigente e os impostos; criar pedido, itens, complementos, auditoria e outbox juntos.

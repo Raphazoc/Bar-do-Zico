@@ -38,7 +38,7 @@ def main():
                 columns={table:[r[0] for r in c.execute("SELECT column_name FROM information_schema.columns WHERE table_schema='bar' AND table_name=%s ORDER BY ordinal_position",(table,))] for table in tables}
                 previous=snapshot(c,columns)
                 checksums=c.execute("SELECT version,checksum FROM bar.flyway_schema_history WHERE version IS NOT NULL ORDER BY installed_rank").fetchall()
-            subprocess.run([flyway,'migrate'],env=env,cwd=ROOT,check=True)
+            subprocess.run([flyway,'-target=16','migrate'],env=env,cwd=ROOT,check=True)
             subprocess.run([flyway,'validate'],env=env,cwd=ROOT,check=True)
             with psycopg.connect(**{**settings,'dbname':database}) as c:
                 assert snapshot(c,columns)==previous

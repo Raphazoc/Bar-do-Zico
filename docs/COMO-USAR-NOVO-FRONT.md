@@ -8,6 +8,8 @@
 
 Não há tela de login. O treinamento tem uma faixa amarela e dados separados.
 Fechar a janela mantém o serviço do computador funcionando para os celulares.
+O **PC é administrador**; o **celular é de atendimento**, com Mesas e Cardápio.
+Consulte [perfis do PC e celular](PERFIS-PC-CELULAR.md) para atualizar e conferir.
 
 ## Mesas e atendimento
 
@@ -19,7 +21,8 @@ Fechar a janela mantém o serviço do computador funcionando para os celulares.
   Editar e Excluir. Se houver mesas, escolha outro local para recebê-las;
   atendimentos em andamento continuam com o mesmo consumo. Sem outro local
   ativo, cadastre um antes de excluir.
-- **Abrir atendimento:** entra na tela daquela mesa.
+- **Abrir mesa** no celular, ou **Abrir atendimento** no PC: inicia o atendimento
+  daquela mesa. Em uma mesa já aberta, use **Ver consumo**.
 - **Adicionar produto:** escolha produto, quantidade e opcionais; clique em
   **Adicionar à mesa**. O consumo e a baixa do estoque são salvos imediatamente.
 - **Remover:** fica ao lado de cada produto do consumo. Confirme o motivo para
@@ -32,8 +35,10 @@ adicionar à mesa ou remover. Não são registrados automaticamente.
 
 ## Caixa
 
-1. Clique em **Abrir caixa**, escolha o caixa e informe o dinheiro inicial.
-   No primeiro uso, informe também o nome do caixa.
+1. Clique em **Abrir caixa**, escolha o caixa e confira o dinheiro inicial.
+   O valor começa em **R$ 0,00**, editável conforme a gaveta. No primeiro uso,
+   informe também o nome do caixa. Se já estiver aberto, clique em
+   **Conferir caixa aberto → Usar caixa aberto**, sem abrir outro turno.
 2. Em **Contas abertas**, selecione a mesa e confira o consumo.
 3. Use **Aplicar desconto** ou **Adicionar acréscimo**, com valor e motivo, se necessário.
 4. Escolha Dinheiro, Pix, Débito, Crédito, Voucher ou Outro.
@@ -47,6 +52,7 @@ adicionar à mesa ou remover. Não são registrados automaticamente.
 Pix e cartões registram pagamentos já confirmados; não cobram automaticamente
 pela maquininha ou banco. O comprovante é simples, não fiscal. Os relatórios
 ficam na opção **Vendas** dentro de Caixa. Correções mantêm o histórico anterior.
+O padrão zero não altera aberturas, recebimentos nem saldos anteriores.
 
 ## Valores do caixa e vendas
 
@@ -73,16 +79,14 @@ Use **Cadastrar funcionário**, informe o nome e escolha a função. Não precis
 de e-mail, usuário ou senha. **Editar**, **Ativar**, **Desativar** e **Excluir** ficam na lista.
 Excluir remove o cadastro das seleções, mantendo seus lançamentos anteriores.
 Não é possível excluir o responsável em uso nem deixar o bar sem administrador.
-Para excluir seu próprio cadastro, selecione antes outro administrador.
+O responsável de gestão fixo do PC é protegido contra exclusão.
 Em **Perfis de acesso / Permissões**, configure as funções agrupadas em Mesas,
 Caixa, Estoque e Administração, com nomes simples e sem preparo/entrega.
 
-O programa abre com o responsável pela gestão do bar. Em **Configurações**,
-é possível escolher outro funcionário para identificar os lançamentos deste
-aparelho e organizar as funções mostradas. A seleção é voluntária, sem senha;
-os perfis não são uma autenticação de identidade. **Voltar à gestão do bar**,
-no rodapé do funcionário, retorna à operação principal. Não troque o responsável
-enquanto houver envio pendente de conferência.
+O programa do PC abre com o responsável fixo pela gestão do bar. O APK usa uma
+identidade interna de atendimento e não oferece troca para administrador.
+A seleção voluntária de funcionário da versão anterior foi substituída;
+cookies antigos não mudam esses perfis. Não há senha nem autenticação pessoal.
 
 ## Estoque e cardápio
 
@@ -125,4 +129,12 @@ o aplicativo enquanto houver uma conferência pendente.
 ## Android
 
 Consulte [Instalar o aplicativo Android](../output/android/COMO-INSTALAR.md).
-No celular, **Menu** abre as cinco áreas; os botões e registros se adaptam ao toque.
+Instale o APK **0.2.3 (código 4)** por cima da versão anterior. O PC continua com
+o executável **0.2.2**, como administrador. No celular, **Menu** abre **Mesas,
+Cardápio e Configurações**. Em Mesas, toque em **Abrir mesa** para iniciar, ou
+**Ver consumo** para continuar; adicione produtos pelo atendimento.
+Caixa, exclusões e cadastros ficam no PC.
+Para configurar o endereço, use **Menu → Configurações → Conexão com o servidor**.
+Essa opção só configura o aplicativo; não abre a gestão do PC. O botão Conexão
+saiu do topo. Se não conectar, a tela de erro oferece **Configurações**.
+Use o mesmo roteador; 4G ou outra rede ainda dependem da implantação no Azure.

@@ -6,15 +6,28 @@
 registra a configuração anterior pelo navegador e não exige mais a entrada
 por usuário/senha na versão atual.
 
-O celular acessa o sistema pelo Chrome, usando o Wi-Fi do bar. Ainda não é
-necessário instalar um aplicativo pela Play Store. A primeira configuração
-precisa ser feita com o computador e o celular por perto.
+O APK atual é **0.2.3 (código 4)**, de atendimento. Instale por cima da versão
+anterior, com a mesma assinatura. O executável do PC continua em **0.2.2**, como
+administrador. No celular, toque em **Abrir mesa** para iniciar um atendimento.
+Para ajustar o endereço, use **Menu → Configurações → Conexão com o servidor**;
+essa configuração pertence ao aplicativo e não dá acesso à gestão do bar.
+Se não houver conexão, toque em **Configurações** na tela de erro. O botão
+**Conexão** não fica mais no topo.
+
+Use o APK de `output/android`, instalado pelo aplicativo Arquivos do Android.
+Ele já contém a CA pública da instalação e não exige instalar certificado
+manualmente no sistema Android. O roteiro de certificados abaixo é necessário
+apenas se você escolher usar o Chrome em vez do APK.
+
+Azure foi confirmado para futuro acesso por 4G/outra rede, mas a conta ainda não
+tem servidor criado. [Veja a revisão e as fases pendentes](REVISAO-REDE-E-AZURE.md).
+Os endereços residenciais abaixo funcionam no mesmo roteador do computador.
 
 ## Começar pelo treinamento
 
 1. No computador, abra `E:\Bar` e dê dois cliques em **Treinamento no Android.cmd**.
-   Se o treinamento já estiver aberto no modo computador, abra primeiro
-   **Parar Treinamento.cmd** e depois inicie o modo Android.
+   **Iniciar Treinamento.cmd** e o atalho da Área de Trabalho também iniciam
+   HTTPS. O inicializador atualiza automaticamente um serviço HTTP antigo.
 2. Aguarde o banco de treinamento e o serviço iniciarem.
 3. Execute **Verificar Rede.cmd**. Ele mostra os endereços disponíveis e não
    altera a configuração do Windows.
@@ -23,14 +36,14 @@ precisa ser feita com o computador e o celular por perto.
    Não use `127.0.0.1` no celular: esse endereço significa o próprio aparelho.
 
 O treinamento usa a porta **18443**. O ambiente real usa **8443**.
-As contas e senhas dos dois ambientes são separadas.
+Os bancos e aplicativos dos dois ambientes são separados. Não há login no modo local.
 
-O proprietário confirmou que a conexão atual é uma rede particular de casa/bar.
+O proprietário confirmou uma conexão residencial com perfil **Público** no Windows.
 O utilitário **Configurar Rede do Bar.cmd** preserva o perfil atual do Windows,
 inclusive **Público**, e aplica regras restritas ao Java, à interface confirmada
 e à sub-rede local. O Windows pede
-confirmação de administrador. Execute esse utilitário apenas na rede particular
-confirmada; ele verifica a identidade da interface antes de aplicar.
+confirmação de administrador. Execute esse utilitário na rede residencial
+confirmada; ele verifica a interface antes de aplicar.
 
 Em **Configurações → Acesso pelo Android**, o administrador também pode consultar
 o endereço e o QR Code do ambiente iniciado em rede. A conexão com gateway é priorizada sobre
@@ -63,19 +76,19 @@ Aqui esse caminho foi adaptado para selecionar o certificado público do bar.
 O procedimento deve ser confirmado no modelo do aparelho durante o piloto.
 Não é necessário desativar as proteções do Android ou do Chrome.
 
-## Abrir e entrar
+## Abrir o sistema
 
 1. Conecte o Android ao mesmo Wi-Fi do computador.
 2. Abra o Chrome e digite o endereço HTTPS do treinamento, com a porta `18443`.
 3. Confira se a tela mostra **TREINAMENTO** antes de fazer qualquer lançamento.
-4. No computador, abra **Acesso do Treinamento.cmd** para consultar o acesso e
-   a senha exclusivos desse ambiente. Na tela do celular, preencha **Usuário
-   ou e-mail** com o e-mail do treinamento, preencha **Senha** e toque em
-   **Entrar**. Não use a senha do Raphael no treinamento.
+4. A tela Mesas abre diretamente, sem usuário ou senha. No APK, use
+   **Menu → Configurações → Conexão com o servidor** para salvar o endereço
+   mostrado em **Configurações → Acesso pelo Android** no computador.
 5. Faça o roteiro de [PILOTO.md](PILOTO.md).
 
 Se aparecer erro de certificado, confira o endereço, a data/hora dos aparelhos
-e a instalação da CA. Não continue inserindo senha enquanto o erro persistir.
+e, no navegador, a instalação da CA. No APK, confirme que a versão atual foi
+gerada com a CA desta instalação. Não ignore o erro de certificado.
 
 ## Se o celular não conseguir abrir
 

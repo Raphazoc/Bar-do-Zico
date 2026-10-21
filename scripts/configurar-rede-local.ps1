@@ -1,7 +1,7 @@
 ﻿[CmdletBinding(SupportsShouldProcess = $true)]
 param(
-    [int]$InterfaceIndex = 3,
-    [string]$ExpectedInterfaceGuid = '1F21319F-D920-4452-B6DA-8DE18AD4E19B'
+    [int]$InterfaceIndex = 0,
+    [string]$ExpectedInterfaceGuid = ''
 )
 $ErrorActionPreference = 'Stop'
 $networkRoot = Split-Path -Parent $PSScriptRoot
@@ -12,8 +12,17 @@ $networkBeforeCategory = $null
 $networkStatePath = Join-Path $networkDirectory 'result.json'
 
 try {
+    if (!$InterfaceIndex) {
+        $networkCandidates = @(Get-NetIPConfiguration | Where-Object {
+            $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' -and $_.NetAdapter.HardwareInterface
+        })
+        if ($networkCandidates.Count -ne 1) {
+            throw 'Não foi possível escolher uma única conexão residencial. Execute Verificar Rede.cmd e informe -InterfaceIndex ao configurar.'
+        }
+        $InterfaceIndex = $networkCandidates[0].InterfaceIndex
+    }
     $networkAdapter = Get-NetAdapter -InterfaceIndex $InterfaceIndex -ErrorAction Stop
-    if ([guid]$networkAdapter.InterfaceGuid -ne [guid]$ExpectedInterfaceGuid -or $networkAdapter.Status -ne 'Up') {
+    if (($ExpectedInterfaceGuid -and [guid]$networkAdapter.InterfaceGuid -ne [guid]$ExpectedInterfaceGuid) -or $networkAdapter.Status -ne 'Up') {
         throw 'A conexão mudou. Confira a interface antes de aplicar a configuração.'
     }
     $networkProfile = Get-NetConnectionProfile -InterfaceIndex $InterfaceIndex -ErrorAction Stop
@@ -66,7 +75,7 @@ try {
         $networkName = 'BarDoZico-Local-' + $networkPortNumber
         if (!(Get-NetFirewallRule -Name $networkName -ErrorAction SilentlyContinue)) {
             New-NetFirewallRule -Name $networkName -DisplayName "Bar do Zico - HTTPS local $networkPortNumber" `
-                -Description 'Acesso do Android ao serviço Java do bar na rede particular confirmada pelo proprietário.' `
+                -Description 'Acesso do Android ao Java na rede residencial; perfil do Windows preservado e origem restrita à sub-rede local.' `
                 -Group $networkGroup -Enabled True -Profile $networkRuleProfile -Direction Inbound -Action Allow `
                 -Protocol TCP -LocalPort $networkPortNumber -RemoteAddress LocalSubnet `
                 -InterfaceAlias $networkAdapter.InterfaceAlias -Program $networkJava -EdgeTraversalPolicy Block | Out-Null
