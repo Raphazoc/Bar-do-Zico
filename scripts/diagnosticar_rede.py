@@ -24,14 +24,14 @@ def main():
         print('Rede:',profile['InterfaceAlias'],'— interface',profile['InterfaceIndex'],'— perfil',category)
     if any(p['NetworkCategory']==0 for p in profiles):
         print('O perfil Público pode ser mantido no Wi-Fi residencial confirmado pelo proprietário.')
-        print('Configurar Rede do Bar.cmd libera somente o Java na sub-rede local e na interface conferida.')
+        print('ferramentas/Configurar Rede do Bar.cmd libera somente o Java na sub-rede local e na interface conferida.')
     rules=subprocess.run(['powershell','-NoProfile','-Command',
         "@(Get-NetFirewallRule -Name 'BarDoZico-Local-8443','BarDoZico-Local-18443' -ErrorAction SilentlyContinue | Where-Object Enabled -eq True).Count"],
         capture_output=True,text=True)
     if rules.returncode==0 and rules.stdout.strip()=='2':
         print('As duas regras do Bar do Zico estão habilitadas; o teste pelo celular ainda é necessário.')
     else:
-        print('Liberação do firewall pendente ou incompleta. Execute Configurar Rede do Bar.cmd e aceite a solicitação do Windows.')
+        print('Liberação do firewall pendente ou incompleta. Execute ferramentas/Configurar Rede do Bar.cmd e aceite a solicitação do Windows.')
     for name,label,port in [('api-runtime.json','Operação',8443),('training-runtime.json','Treinamento',18443)]:
         path=ROOT/'.tools'/name
         if not path.exists(): print(label+': serviço ainda não preparado.');continue

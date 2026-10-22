@@ -15,7 +15,7 @@ no ambiente de operação, para cadastro manual.
 
 1. Abra a pasta `E:\Bar` no Explorador de Arquivos.
 2. Dê dois cliques em **Iniciar Treinamento.cmd** e aguarde a janela Java abrir.
-3. Abra **Acesso do Treinamento.cmd** e consulte a senha. No campo **Usuário
+3. Abra **ferramentas/Acesso do Treinamento.cmd** e consulte a senha. No campo **Usuário
    ou e-mail**, digite `treinamento@bar.local`, preencha **Senha** e clique em
    **Entrar**.
 4. Confira a faixa **TREINAMENTO** antes de começar. O endereço local deste

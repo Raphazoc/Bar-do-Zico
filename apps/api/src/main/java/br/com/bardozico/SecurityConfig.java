@@ -43,14 +43,17 @@ class SecurityConfig {
                         String origin=req.getHeader("Origin");
                         String expected=req.getScheme()+"://"+req.getHeader("Host");
                         if (origin!=null && !origin.equals(expected)) { fail(res,403,"Origem não permitida.",json); return; }
-                        String token=null;
-                        if (req.getCookies()!=null) for (var cookie:req.getCookies()) if (cookie.getName().equals(training?"BAR_TRAINING_SESSION":"BAR_SESSION")) token=cookie.getValue();
+                        String token=null,attendantToken=null;
+                        if (req.getCookies()!=null) for (var cookie:req.getCookies()) {
+                            if (cookie.getName().equals(training?"BAR_TRAINING_SESSION":"BAR_SESSION")) token=cookie.getValue();
+                            if (cookie.getName().equals(training?"BAR_TRAINING_ATTENDANT":"BAR_ATTENDANT")) attendantToken=cookie.getValue();
+                        }
                         Actor actor=null;
                         if(devices.enabled()&&!req.getRequestURI().equals("/api/health")) {
                             if(Set.of("/api/login","/api/operator","/api/password").contains(req.getRequestURI())) {
                                 fail(res,403,"O perfil é definido pelo aparelho: administrador no PC e atendimento no celular.",json);return;
                             }
-                            try{actor=devices.attendance(req)?identity.mobileOperator():identity.localOperator();}
+                            try{actor=devices.attendance(req)?identity.mobileOperator(attendantToken):identity.localOperator();}
                             catch(ApiError e){fail(res,e.status,e.getMessage(),json);return;}
                         } else actor=identity.authenticate(token);
                         if(actor==null && openAccess && !devices.enabled() && !req.getRequestURI().equals("/api/login") && !req.getRequestURI().equals("/api/health")) {

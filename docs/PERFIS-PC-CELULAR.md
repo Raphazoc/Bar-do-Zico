@@ -2,12 +2,17 @@
 
 ## Uso no dia a dia
 
-O **programa do PC é o administrador**: Mesas, Caixa, Funcionários, Estoque,
+O **programa do PC é o administrador**: Mesas, Caixa, Estoque,
 Cardápio e Configurações. O **APK é de atendimento**: consultar mesas e cardápio,
 **Adicionar mesa**, **Abrir mesa**, visualizar o consumo e adicionar produtos à mesa.
 Recebimentos, descontos, exclusões e demais tarefas de gestão ficam no PC.
 Atendente e administrador podem criar mesas. Veja [o passo a passo](MESAS-NO-CELULAR.md).
 Os dois continuam abrindo sem tela de login, em operação e treinamento.
+
+O APK pede somente **Seu nome** na primeira abertura. O nome identifica os
+lançamentos e fica salvo no aparelho. Em **Menu → Configurações**, altere o nome
+para trocar de atendente; os pedidos anteriores mantêm a identificação antiga.
+Não há cadastro de funcionários no PC. Veja [identificação](IDENTIFICACAO-ATENDENTE.md).
 
 No celular não aparece uma opção para virar administrador. Para ajustar o
 endereço, use **Menu → Configurações → Conexão com o servidor**. São configurações
@@ -17,7 +22,7 @@ de erro oferece um atalho **Configurações**, acessível mesmo sem o servidor.
 ## Atualizar e conferir
 
 1. No PC, mantenha **Bar do Zico** ou **Bar do Zico - Treinamento** iniciado.
-   O executável permanece em **0.2.2**, com acesso de administrador.
+   O executável permanece em **0.2.4**, com acesso de administrador.
 2. No Android, instale o APK **0.2.3, código 4**, correspondente ao ambiente,
    por cima da versão anterior. A assinatura e os dados locais são preservados.
 3. No computador, confira o perfil de administrador. No celular, confira o

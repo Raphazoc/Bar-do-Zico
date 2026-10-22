@@ -31,7 +31,7 @@ publicou ou alterou recursos. O impedimento anterior de consultar a assinatura
 não se repetiu após autenticar a CLI. O login do VS Code era uma sessão separada.
 
 A CLI ZIP 2.91.0 está em `.tools/azure-cli-2.91.0`, sem instalação global.
-**Verificar Azure.cmd** permite repetir o inventário. O arquivo é apenas de
+**ferramentas/Verificar Azure.cmd** permite repetir o inventário. O arquivo é apenas de
 consulta; não contém comandos de criação de infraestrutura.
 
 ## Correções entregues

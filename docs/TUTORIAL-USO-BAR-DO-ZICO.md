@@ -457,8 +457,8 @@ instalado e se o papel está configurado para 80 mm.
 | `Iniciar Treinamento.cmd` | Inicia o ambiente de treinamento |
 | `Parar Bar.cmd` | Para o serviço da operação |
 | `Parar Treinamento.cmd` | Para o serviço de treinamento |
-| `Configurar Rede do Bar.cmd` | Configura as regras de rede locais |
-| `Verificar Rede.cmd` | Diagnostica a rede |
-| `Fazer Backup.cmd` | Executa e confere uma cópia |
-| `Configurar Backups.cmd` | Configura a pasta secundária de cópias |
+| `ferramentas/Configurar Rede do Bar.cmd` | Configura as regras de rede locais |
+| `ferramentas/Verificar Rede.cmd` | Diagnostica a rede |
+| `ferramentas/Fazer Backup.cmd` | Executa e confere uma cópia |
+| `ferramentas/Configurar Backups.cmd` | Configura a pasta secundária de cópias |
 | `Criar Atalhos.cmd` | Recria os atalhos da Área de Trabalho |

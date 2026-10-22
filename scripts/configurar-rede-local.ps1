@@ -17,7 +17,7 @@ try {
             $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' -and $_.NetAdapter.HardwareInterface
         })
         if ($networkCandidates.Count -ne 1) {
-            throw 'Não foi possível escolher uma única conexão residencial. Execute Verificar Rede.cmd e informe -InterfaceIndex ao configurar.'
+            throw 'Não foi possível escolher uma única conexão residencial. Execute ferramentas/Verificar Rede.cmd e informe -InterfaceIndex ao configurar.'
         }
         $InterfaceIndex = $networkCandidates[0].InterfaceIndex
     }

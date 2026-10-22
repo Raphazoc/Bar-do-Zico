@@ -8,16 +8,16 @@ abaixo continuam disponíveis para desenvolvimento e diagnóstico.
 O piloto também dispõe de banco de treinamento persistente `bar_training_<uuid>`,
 provisionado por `scripts/preparar_treinamento.py`. Configuração e acesso ficam
 privados em `.tools/training/`; o serviço usa `18081` ou `18443` em HTTPS.
-`Verificar Rede.cmd` faz apenas leitura das condições locais. Os celulares
+`ferramentas/Verificar Rede.cmd` faz apenas leitura das condições locais. Os celulares
 informados pelo proprietário são Android; consulte [ANDROID.md](ANDROID.md).
 O Wi-Fi residencial permanece com perfil Público no Windows. O utilitário
-**Configurar Rede do Bar.cmd** preserva esse perfil e solicita apenas regras
+**ferramentas/Configurar Rede do Bar.cmd** preserva esse perfil e solicita apenas regras
 locais para o Java; a confirmação administrativa ainda deve ser conferida.
 
 A tela **Preparação** reúne cadastros, acesso Android e estado das cópias.
 O serviço de operação inicia um trabalhador de backup horário, com arquivos
 e manifestos em `.tools/backups/`. Cada cópia é restaurada em banco temporário
-e conferida antes do sucesso. **Configurar Backups.cmd** escolhe a segunda
+e conferida antes do sucesso. **ferramentas/Configurar Backups.cmd** escolhe a segunda
 pasta; consulte [BACKUP-E-RECUPERACAO.md](BACKUP-E-RECUPERACAO.md).
 
 ## Ferramentas disponíveis

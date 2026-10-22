@@ -27,7 +27,7 @@ def main():
         subprocess.run([command,'login','--use-device-code','--output','none'],cwd=ROOT,check=True)
         accounts=query('account','list','--all','--query','[].{id:id,name:name,state:state,tenantId:tenantId}')
     if not accounts:
-        print('Azure CLI preparada, mas sem sessão autenticada. Abra Verificar Azure.cmd para entrar e consultar os recursos.')
+        print('Azure CLI preparada, mas sem sessão autenticada. Abra ferramentas/Verificar Azure.cmd para entrar e consultar os recursos.')
         return
     plan=(ROOT/'.azure/deployment-plan.md').read_text(encoding='utf-8')
     match=re.search(r'Subscription ID:\s*`?([0-9a-f-]{36})`?',plan.replace('**',''),re.IGNORECASE)

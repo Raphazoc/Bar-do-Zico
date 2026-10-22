@@ -53,7 +53,7 @@ autorização do aparelho. Atualmente o acesso disponível é residencial. Nesse
 confirme que o computador está ligado, o serviço está aberto e os aparelhos
 estão na mesma rede. Redes de convidados podem impedir comunicação local.
 O Windows precisa permitir o acesso local do Java. O utilitário
-**Configurar Rede do Bar.cmd** solicita a confirmação administrativa do Windows
+**ferramentas/Configurar Rede do Bar.cmd** solicita a confirmação administrativa do Windows
 para isso e preserva o perfil da rede. Não abra o PostgreSQL ou o roteador à internet.
 
 Sem internet externa, o atendimento local continua. Sem Wi-Fi ou sem computador,

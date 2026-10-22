@@ -13,10 +13,10 @@ Entre como administrador, clique em **Configurações** e encontre a seção
 resultado da segunda cópia, quando configurada.
 O botão **Fazer backup agora** solicita uma cópia ao trabalhador local.
 
-**Fazer Backup.cmd** continua disponível no computador para executar uma
+**ferramentas/Fazer Backup.cmd** continua disponível no computador para executar uma
 cópia verificada manualmente. Uma trava impede cópias simultâneas.
-**Pausar Backups Automaticos.cmd** pausa o agendamento. Para reativar sem mudar
-a pasta escolhida, abra **Ativar Backups Automaticos.cmd**.
+**ferramentas/Pausar Backups Automaticos.cmd** pausa o agendamento. Para reativar sem mudar
+a pasta escolhida, abra **ferramentas/Ativar Backups Automaticos.cmd**.
 
 O treinamento não administra backups reais. O botão de solicitação fica
 disponível somente na operação, para usuários com permissão administrativa.
@@ -24,7 +24,7 @@ disponível somente na operação, para usuários com permissão administrativa.
 ## Escolher uma segunda pasta
 
 1. Conecte o disco ou pendrive que deseja usar.
-2. Abra **Configurar Backups.cmd**.
+2. Abra **ferramentas/Configurar Backups.cmd**.
 3. Escolha a pasta de destino na janela do Windows.
 4. O utilitário cria a subpasta `Bar-do-Zico-Backups` e configura a segunda cópia.
 
@@ -53,7 +53,7 @@ Referência técnica: [pg_dump do PostgreSQL 17](https://www.postgresql.org/docs
 ## Conferir uma cópia existente
 
 1. Mantenha o Docker e o banco funcionando.
-2. Abra **Conferir Backup.cmd**.
+2. Abra **ferramentas/Conferir Backup.cmd**.
 3. Selecione um `.dump` criado pelo sistema. O `.manifest.json` correspondente
    deve estar na mesma pasta.
 4. Aguarde a conferência em banco temporário. O banco real não será substituído.

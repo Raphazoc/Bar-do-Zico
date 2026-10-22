@@ -16,6 +16,14 @@ class IdentityController {
     record Login(String username,String email,String password) { }
     record Password(String currentPassword,String newPassword) { }
     record Operator(UUID userId) { }
+    record Attendant(String name) { }
+    @PostMapping("/attendant") ResponseEntity<?> attendant(@AuthenticationPrincipal Actor actor,@RequestBody Attendant body) {
+        if(!devices.enabled()||!actor.attendanceOnly())throw new ApiError(403,"O nome do atendente é informado no celular.");
+        String token=identity.identifyAttendant(body.name());
+        String cookie=ResponseCookie.from(training?"BAR_TRAINING_ATTENDANT":"BAR_ATTENDANT",token)
+            .httpOnly(true).secure(secure).sameSite("Strict").path("/api").maxAge(365L*24*60*60).build().toString();
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE,cookie).body(Map.of("ok",true));
+    }
     @PostMapping("/operator") ResponseEntity<?> operator(@RequestBody Operator body) {
         if(!openAccess) throw new ApiError(403,"A seleção sem senha não está habilitada.");
         return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE,body.userId()==null?cookie("",0):cookie(identity.selectOperator(body.userId()),28800)).body(Map.of("ok",true));
@@ -35,6 +43,7 @@ class IdentityController {
         out.put("id",a.id());out.put("name",a.name());out.put("email",a.email());out.put("username",a.username());
         out.put("permissions",a.permissions());out.put("unit",unit);out.put("training",training);out.put("openAccess",openAccess);
         out.put("deviceAccess",devices.enabled());out.put("accessMode",a.attendanceOnly()?"ATENDIMENTO":"ADMINISTRADOR");
+        out.put("attendantIdentified",identity.namedAttendant(a));
         return out;
     }
     @PostMapping("/logout") ResponseEntity<?> logout(@AuthenticationPrincipal Actor a) {

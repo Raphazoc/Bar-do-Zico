@@ -115,7 +115,12 @@ class Operations {
                 }
                 var repeated=db.queryForList("SELECT active FROM bar.bar_tables WHERE establishment_id=? AND number=? AND id<>?",u,number,id);
                 if(!repeated.isEmpty()) throw ApiError.bad("Já existe uma mesa com este número. Escolha outro número.");
-                save(b,"bar_tables",id,u,Map.of("area_id",area,"number",number,"active",active));
+                var values=new HashMap<String,Object>(Map.of("area_id",area,"number",number,"active",active));
+                if(!b.hasNonNull("id")) {
+                    values.put("created_by",a.id());
+                    values.put("created_by_name_snapshot",a.name());
+                }
+                save(b,"bar_tables",id,u,values);
             }
             case "table.delete" -> {
                 id=uuid(b,"tableId");

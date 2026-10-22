@@ -58,11 +58,27 @@ class Identity {
         return new HashSet<>(db.queryForList("SELECT DISTINCT p.code FROM bar.user_roles ur JOIN bar.role_permissions rp ON (rp.establishment_id,rp.role_id)=(ur.establishment_id,ur.role_id) JOIN bar.permissions p ON p.id=rp.permission_id WHERE ur.establishment_id=? AND ur.user_id=?",String.class,unit,id));
     }
     Actor mobileOperator() {
+        return mobileOperator(null);
+    }
+    Actor mobileOperator(String token) {
+        if(token!=null&&token.matches("[a-f0-9]{64}")) {
+            var rows=db.queryForList("""
+                SELECT u.id,u.name,s.id session_id FROM bar.app_sessions s
+                JOIN bar.users u ON (u.establishment_id,u.id)=(s.establishment_id,s.user_id)
+                WHERE s.establishment_id=? AND s.token_hash=? AND s.revoked_at IS NULL
+                  AND s.expires_at>CURRENT_TIMESTAMP AND u.active AND u.deleted_at IS NULL
+                  AND u.system_attendant AND u.named_attendant
+                """,unit,hash(token));
+            if(!rows.isEmpty()) {
+                var row=rows.getFirst();
+                return new Actor((UUID)row.get("id"),unit,(UUID)row.get("session_id"),(String)row.get("name"),null,null,Set.of("table.create","account.open","order.create"),true);
+            }
+        }
         return tx.execute(status->{
             db.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",unit+":mobile-operator");
             if(db.queryForObject("SELECT count(*) FROM bar.establishments WHERE id=?",Integer.class,unit)==0)
                 throw new ApiError(503,"O bar precisa ser configurado no computador.");
-            var users=db.queryForList("SELECT id,active,deleted_at FROM bar.users WHERE establishment_id=? AND system_attendant FOR UPDATE",unit);
+            var users=db.queryForList("SELECT id,active,deleted_at FROM bar.users WHERE establishment_id=? AND system_attendant AND NOT named_attendant FOR UPDATE",unit);
             UUID id;
             if(users.isEmpty()) {
                 id=UUID.randomUUID();
@@ -74,6 +90,31 @@ class Identity {
                 id=(UUID)user.get("id");
             }
             return new Actor(id,unit,null,"Atendimento do celular",null,null,Set.of("table.create","account.open","order.create"),true);
+        });
+    }
+    boolean namedAttendant(Actor actor) {
+        return actor.attendanceOnly()&&Boolean.TRUE.equals(db.queryForObject("SELECT named_attendant FROM bar.users WHERE establishment_id=? AND id=?",Boolean.class,unit,actor.id()));
+    }
+    String identifyAttendant(String rawName) {
+        if(rawName==null)throw ApiError.bad("Informe o nome do atendente.");
+        String name=rawName.strip().replaceAll("\\s+"," ");
+        if(name.isEmpty()||name.length()>80||rawName.codePoints().anyMatch(Character::isISOControl))
+            throw ApiError.bad("Informe um nome de até 80 caracteres, sem quebras de linha.");
+        return tx.execute(status->{
+            db.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",unit+":mobile-operator");
+            var rows=db.queryForList("SELECT id,active,deleted_at FROM bar.users WHERE establishment_id=? AND system_attendant AND named_attendant AND lower(name)=lower(?) FOR UPDATE",unit,name);
+            UUID id;
+            if(rows.isEmpty()) {
+                id=UUID.randomUUID();
+                db.update("INSERT INTO bar.users(id,establishment_id,name,password_hash,system_attendant,named_attendant) VALUES(?,?,?,?,true,true)",id,unit,name,"!sem-login-no-aparelho!"+UUID.randomUUID());
+            } else {
+                var row=rows.getFirst();
+                if(!Boolean.TRUE.equals(row.get("active"))||row.get("deleted_at")!=null)throw ApiError.bad("Este identificador de atendimento está indisponível.");
+                id=(UUID)row.get("id");
+            }
+            byte[] bytes=new byte[32];new SecureRandom().nextBytes(bytes);String token=HexFormat.of().formatHex(bytes);
+            db.update("INSERT INTO bar.app_sessions(establishment_id,user_id,token_hash,expires_at) VALUES(?,?,?,CURRENT_TIMESTAMP+interval '365 days')",unit,id,hash(token));
+            return token;
         });
     }
     String selectOperator(UUID user) {

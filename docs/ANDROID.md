@@ -29,7 +29,7 @@ Os endereços residenciais abaixo funcionam no mesmo roteador do computador.
    **Iniciar Treinamento.cmd** e o atalho da Área de Trabalho também iniciam
    HTTPS. O inicializador atualiza automaticamente um serviço HTTP antigo.
 2. Aguarde o banco de treinamento e o serviço iniciarem.
-3. Execute **Verificar Rede.cmd**. Ele mostra os endereços disponíveis e não
+3. Execute **ferramentas/Verificar Rede.cmd**. Ele mostra os endereços disponíveis e não
    altera a configuração do Windows.
 4. Escolha o endereço da rede do bar, por exemplo `https://192.168.0.8:18443`.
    Use o endereço informado na sua máquina; ele pode mudar com o roteador.
@@ -39,7 +39,7 @@ O treinamento usa a porta **18443**. O ambiente real usa **8443**.
 Os bancos e aplicativos dos dois ambientes são separados. Não há login no modo local.
 
 O proprietário confirmou uma conexão residencial com perfil **Público** no Windows.
-O utilitário **Configurar Rede do Bar.cmd** preserva o perfil atual do Windows,
+O utilitário **ferramentas/Configurar Rede do Bar.cmd** preserva o perfil atual do Windows,
 inclusive **Público**, e aplica regras restritas ao Java, à interface confirmada
 e à sub-rede local. O Windows pede
 confirmação de administrador. Execute esse utilitário na rede residencial
@@ -96,8 +96,8 @@ gerada com a CA desta instalação. Não ignore o erro de certificado.
 - Confira se o endereço usa a porta correta e o IP atual do computador.
 - Uma rede de convidados pode impedir comunicação entre os aparelhos.
 - O Firewall do Windows precisa permitir a porta utilizada na conexão residencial do bar.
-  **Configurar Rede do Bar.cmd** prepara as regras 8443 e 18443 sem desativar
-  o firewall. **Verificar Rede.cmd** continua sendo somente de leitura.
+  **ferramentas/Configurar Rede do Bar.cmd** prepara as regras 8443 e 18443 sem desativar
+  o firewall. **ferramentas/Verificar Rede.cmd** continua sendo somente de leitura.
 
 O teste feito no próprio computador não comprova o acesso pelo Android.
 O piloto só pode ser marcado como concluído depois de testar no aparelho real.

@@ -5,6 +5,51 @@ fonte de verdade do modelo. JDBC foi usado para coordenar explicitamente os
 bloqueios, views e transações já definidos; JPA não foi introduzido nesta entrega.
 A API não altera o schema. Flyway aplica as migrações separadamente.
 
+## Autoria da mesa e dos itens — V21
+
+`table.create` e o cadastro novo por `table.save` gravam `created_by` e
+`created_by_name_snapshot` a partir do responsável da requisição. Esses campos
+permanecem fixos nas edições e transferências; o banco impede sua alteração.
+O vínculo de usuário é validado dentro da mesma unidade. O cliente não escolhe
+o criador de um cadastro novo.
+
+`/api/state` expõe `tables[].created_by_name` e `accounts[].opened_by_name`.
+O detalhe da conta e seus itens incluem `opened_by_name` e `attendant_name`,
+também no acesso restrito de atendimento, sem acrescentar valores de pagamentos
+ou ajustes ao celular. O autor de cada item continua baseado em `orders.waiter_id`.
+
+V21 acrescenta somente as duas colunas de autoria da mesa, a chave estrangeira,
+uma verificação de preenchimento conjunto e a proteção contra alteração.
+Recupera autores anteriores somente de eventos `table.create`. Eventos antigos
+`table.save` podiam representar edição e não são usados para deduzir o criador.
+Cadastros sem registro comprovado ficam com autoria nula, exibida como
+**Não identificado**. As migrações anteriores permanecem inalteradas.
+
+## Nome declarado no celular — V20
+
+`POST /api/attendant` recebe `{ "name": "Ana" }` e aceita somente o perfil de
+atendimento no modo por aparelho. Exige `X-Bar-Request: 1` e a mesma origem.
+O nome deve ter de 1 a 80 caracteres, sem controles ou quebras de linha.
+`GET /api/me` informa `attendantIdentified`, `name` e o identificador interno.
+
+A resposta grava cookie HttpOnly/SameSite Strict, seguro em HTTPS, por até um
+ano; operação e treinamento usam cookies separados. Cada aparelho guarda sua
+escolha. A API aceita somente sessões de usuários internos `system_attendant`
+e `named_attendant`, limitadas a `table.create`, `account.open` e `order.create`.
+Cookies de administrador não concedem gestão ao celular; o PC local ignora
+cookies de atendimento e mantém o responsável fixo.
+
+Nomes iguais, ignorando maiúsculas, reutilizam o identificador na mesma unidade.
+Trocar de nome seleciona outro identificador; não renomeia usuários antigos.
+Contas e pedidos conservam `opened_by` e `waiter_id`. O consumo consultado pelo
+PC acrescenta `attendant_name` por item. Nomes declarados não autenticam pessoas.
+
+V20 acrescenta `users.named_attendant` e separa os índices da identidade genérica
+e das identidades por nome, sem alterar migrações anteriores ou movimentações.
+A identidade genérica permanece para compatibilidade; a interface atual pede o
+nome antes de liberar as telas de atendimento. Cadastros/perfis antigos e suas
+rotas continuam preservados, sem aba de funcionários na interface atual.
+
 ## Caixa diário e conferência antes do pagamento — V19
 
 `POST /api/commands/cash.start` aceita `{}`, exige `cash.open` e usa idempotência.

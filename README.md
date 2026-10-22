@@ -1,5 +1,12 @@
 # Bar do Zico — computador e Android
 
+[Índice dos guias](docs/README.md) · [Ferramentas de manutenção](ferramentas/README.md)
+
+**Uso atual:** o PC tem **Mesas, Caixa, Estoque e Cardápio**, sem aba de funcionários.
+O APK pede somente o **nome do atendente** na primeira abertura e lembra a escolha
+no aparelho. Para trocar, use **Menu → Configurações → Seu nome**. Os pedidos
+anteriores mantêm sua identificação. Veja [nome do atendente](docs/IDENTIFICACAO-ATENDENTE.md).
+
 **Revisão atual:** [PC administrador, celular de atendimento e caixa com abertura zero](docs/PERFIS-PC-CELULAR.md).
 O programa do PC administra; o atendente no APK também pode **Adicionar mesa**,
 consultar mesas/cardápio, abrir atendimento e adicionar produtos.
@@ -43,11 +50,13 @@ Não há instalador MSI nesta entrega.
 
 ## Interface e funções
 
-O menu do PC tem **Mesas, Caixa, Funcionários, Estoque e Cardápio**.
+O menu do PC tem **Mesas, Caixa, Estoque e Cardápio**.
 No Android, **Menu** reúne **Mesas, Cardápio e Configurações**. As configurações
 do aplicativo permitem ajustar a conexão; não dão acesso à gestão do bar.
 
 - Mesas: busca, situação, adicionar, editar, excluir permanentemente com confirmação e reutilizar o número.
+- Autoria: criador da mesa, responsável pela abertura do atendimento e nome de
+  quem adicionou cada item, visíveis no PC e no celular.
 - Locais: edição e exclusão com transferência das mesas, inclusive ocupadas.
 - Atendimento em tela própria: consumo, produtos/opcionais salvos diretamente
   na mesa e passagem da mesma conta para o caixa, sem preparo ou entrega.
@@ -57,9 +66,8 @@ do aplicativo permitem ajustar a conexão; não dão acesso à gestão do bar.
   seis formas de pagamento, parcelas, troco, entradas/retiradas e fechamento.
 - Vendas: cada atendimento encerrado por mesa, data/hora e valor, com período
   e paginação; auditoria separada em Configurações, com nomes simples.
-- Funcionários: cadastro/edição sem e-mail ou senha, ativação, exclusão definitiva
-  do cadastro com histórico preservado, perfis e permissões agrupadas.
-  O responsável de gestão do PC é fixo; o APK usa uma identidade interna de atendimento.
+- Identificação: responsável de gestão fixo no PC; nome declarado pelo atendente
+  no celular, sem cadastro de funcionários ou senha. Trocas preservam pedidos antigos.
 - Estoque: quantidade, mínimo, busca/filtros/ordenação, entradas/saídas/ajustes,
   histórico, alertas, exclusão de produtos e baixa ao adicionar à mesa, com devolução quando aplicável.
 - Cardápio: preço, quantidade e disponibilidade no mesmo cadastro do estoque.
@@ -79,6 +87,10 @@ delivery ou controle de receitas/ingredientes nesta entrega.
 
 ## Arquivos para abrir nesta máquina
 
+Os inicializadores de uso diário ficam na pasta principal. Os comandos de
+rede e manutenção foram agrupados em **ferramentas**; os atalhos da Área de
+Trabalho continuam apontando para os mesmos inicializadores.
+
 | Arquivo | Uso |
 |---|---|
 | `Iniciar Bar.cmd` | Inicia HTTPS local para computador/celular e abre o programa |
@@ -86,12 +98,12 @@ delivery ou controle de receitas/ingredientes nesta entrega.
 | `Iniciar Treinamento.cmd` | Inicia treinamento em HTTPS local e abre o programa |
 | `Treinamento no Android.cmd` | Treinamento com HTTPS local |
 | `Parar Bar.cmd` / `Parar Treinamento.cmd` | Encerra apenas o serviço correspondente |
-| `Configurar Rede do Bar.cmd` | Regras locais do Java com confirmação administrativa do Windows |
-| `Verificar Rede.cmd` | Diagnóstico de rede sem alterar configurações |
-| `Verificar Azure.cmd` | Login Microsoft, quando necessário, e consulta dos recursos sem criar infraestrutura |
-| `Fazer Backup.cmd` | Cópia real com restauração em banco temporário |
-| `Configurar Backups.cmd` | Segunda pasta de cópias, fora do disco principal |
-| `Conferir Backup.cmd` | Verificação de uma cópia já existente |
+| `ferramentas/Configurar Rede do Bar.cmd` | Regras locais do Java com confirmação administrativa do Windows |
+| `ferramentas/Verificar Rede.cmd` | Diagnóstico de rede sem alterar configurações |
+| `ferramentas/Verificar Azure.cmd` | Login Microsoft, quando necessário, e consulta dos recursos sem criar infraestrutura |
+| `ferramentas/Fazer Backup.cmd` | Cópia real com restauração em banco temporário |
+| `ferramentas/Configurar Backups.cmd` | Segunda pasta de cópias, fora do disco principal |
+| `ferramentas/Conferir Backup.cmd` | Verificação de uma cópia já existente |
 | `Criar Atalhos.cmd` | Recria os atalhos da Área de Trabalho |
 | `Iniciar Android de Teste.cmd` | Abre o celular Android virtual com o APK de treinamento |
 
@@ -103,8 +115,8 @@ no aparelho físico e o piloto no Wi-Fi do bar ainda devem ser acompanhados.
 
 - Computador/API: Java 25, JavaFX 25.0.1, Spring Boot 3.5.16 e Spring JDBC.
 - Interface: React, TypeScript e Vite; arquivos servidos localmente pela API.
-- Banco: PostgreSQL 17.11, 19 migrações versionadas Flyway, 37 tabelas incluindo
-  o histórico, 87 chaves estrangeiras e quatro views.
+- Banco: PostgreSQL 17.11, 21 migrações versionadas Flyway, 37 tabelas incluindo
+  o histórico, 88 chaves estrangeiras e quatro views.
 - Android: Java/WebView, AGP 8.13.2, Gradle 8.13, compile/target SDK 35, API mínima 26.
   JDK 21 só para a compilação Android, sem alterar o Java 25 do computador/API.
 

@@ -18,8 +18,8 @@ este projeto gera sua própria representação a partir do banco implementado.
 
 Total do modelo inicial: 33 tabelas operacionais/de referência. V11 acrescentou
 `app_sessions` e `login_attempts` para autenticação local. V13 acrescentou `stock_movements`: são 36 tabelas mais
-`flyway_schema_history`, gerenciada pelo Flyway. O banco atual tem 87 chaves
-estrangeiras, quatro views e 19 migrações versionadas. Compras, receitas,
+`flyway_schema_history`, gerenciada pelo Flyway. O banco atual tem 88 chaves
+estrangeiras, quatro views e 21 migrações versionadas. Compras, receitas,
 ingredientes e integrações permanecem fora desta entrega.
 
 V19 acrescenta `cash_sessions.review_required`. A abertura do programa marca
@@ -238,3 +238,13 @@ dos cadastros reais e validação de celulares físicos/rede local.
 
 Referências técnicas: [PostgreSQL 17](https://www.postgresql.org/docs/17/),
 [Flyway CLI](https://documentation.red-gate.com/flyway/reference/usage/command-line).
+
+V20 acrescenta `users.named_attendant`. Identificadores declarados nos celulares
+continuam internos, sem perfis de gestão ou login pessoal. Índices separados
+preservam a identidade genérica e garantem um identificador por nome na unidade.
+As referências de contas/pedidos anteriores e migrações V1–V19 são preservadas.
+
+V21 registra `bar_tables.created_by` e `created_by_name_snapshot` com vínculo
+à mesma unidade e proteção contra alteração. Recupera criadores antigos somente
+quando há evento `table.create`; outras mesas mantêm autoria desconhecida.
+Edições e transferências preservam o criador original.

@@ -1,5 +1,9 @@
 # Entrega — novo front, estoque e APK Android
 
+Atualização de 21/10/2026: [nome do atendente no celular](IDENTIFICACAO-ATENDENTE.md).
+A aba Funcionários foi retirada; o PC administra e o APK pede somente o nome,
+sem login. As descrições anteriores abaixo registram entregas históricas.
+
 Atualização mais recente: [cadastros, caixa e vendas por mesa](AJUSTES-CAIXA-VENDAS-CADASTROS.md).
 
 Atualização posterior: [exclusões e atendimento direto](AJUSTES-ATENDIMENTO-DIRETO.md)

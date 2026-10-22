@@ -16,6 +16,11 @@ Consulte [perfis do PC e celular](PERFIS-PC-CELULAR.md) para atualizar e conferi
 Atendente e administrador podem **Adicionar mesa**, inclusive pelo celular.
 Veja [cadastro de mesas no celular](MESAS-NO-CELULAR.md).
 
+Cada mesa mostra **Criada por**. Ao entrar no consumo, confira **Atendimento
+aberto por** e **Adicionado por** em cada produto. Assim você pode identificar
+quem cadastrou a mesa, quem começou a conta e quem lançou cada item, mesmo
+quando vários atendentes usam a mesma mesa.
+
 - **Adicionar mesa:** informe o número ou nome. O local Salão é criado se necessário.
 - **Editar / Excluir:** aparecem em cada mesa. Excluir pede confirmação e é
   permanente: o número fica livre para cadastrar outra mesa. As contas antigas
@@ -107,20 +112,21 @@ Os recebimentos e conferências detalhados ficam recolhidos abaixo da lista.
 Em **Configurações → Histórico de alterações**, usuários com essa permissão
 podem consultar alterações com nomes claros, sem códigos técnicos.
 
-## Funcionários
+## Nome do atendente
 
-Use **Cadastrar funcionário**, informe o nome e escolha a função. Não precisa
-de e-mail, usuário ou senha. **Editar**, **Ativar**, **Desativar** e **Excluir** ficam na lista.
-Excluir remove o cadastro das seleções, mantendo seus lançamentos anteriores.
-Não é possível excluir o responsável em uso nem deixar o bar sem administrador.
-O responsável de gestão fixo do PC é protegido contra exclusão.
-Em **Perfis de acesso / Permissões**, configure as funções agrupadas em Mesas,
-Caixa, Estoque e Administração, com nomes simples e sem preparo/entrega.
+Não existe mais a aba Funcionários. O PC administra o bar.
+Na primeira abertura do celular, preencha **Seu nome** e toque em
+**Começar atendimento**. Não precisa de e-mail, cadastro ou senha.
 
-O programa do PC abre com o responsável fixo pela gestão do bar. O APK usa uma
-identidade interna de atendimento e não oferece troca para administrador.
-A seleção voluntária de funcionário da versão anterior foi substituída;
-cookies antigos não mudam esses perfis. Não há senha nem autenticação pessoal.
+O aparelho lembra o nome. Para trocar quem está usando o celular, abra
+**Menu → Configurações**, altere **Seu nome** e toque em **Salvar nome**.
+A troca afeta somente os próximos lançamentos deste aparelho. Pedidos antigos
+mantêm o atendente original; outros celulares conservam seus próprios nomes.
+Confira qualquer **envio sem confirmação** antes de trocar o nome.
+No PC, em Caixa, o consumo da mesa mostra a coluna **Atendente**.
+
+A conexão permanece em **Menu → Configurações → Conexão com o servidor**.
+Veja [identificação do atendente](IDENTIFICACAO-ATENDENTE.md).
 
 ## Estoque e cardápio
 

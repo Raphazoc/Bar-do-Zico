@@ -1,5 +1,82 @@
 # Plano de trabalho — Bar do Zico
 
+## Autoria de mesas e itens — V21 (21/10/2026)
+
+As mesas mostram **Criada por**. No consumo, **Atendimento aberto por** informa
+quem começou a conta e **Adicionado por** identifica o responsável por cada item,
+tanto no PC quanto no celular. O Caixa mantém a coluna de atendente por produto.
+Trocar de atendente não altera a autoria anterior.
+
+V21 grava o identificador e o nome original do criador da mesa; edições e
+transferências preservam esses campos. O banco valida a unidade e impede mudar
+o criador. A migração recupera cadastros anteriores somente quando encontra um
+evento `table.create`; os demais exibem **Não identificado**, sem atribuir ao editor.
+
+Validação: **98 testes Java/API** e **62 casos de interface** aprovados. Incluiu
+dois atendentes na mesma mesa, troca de nome, edição, transferência de mesa
+ocupada e rejeição de criador forjado. Migração conferida em cópia preenchida,
+com recuperação de criação comprovada e preservação dos registros anteriores.
+Operação e treinamento atualizados por HTTPS; os registros anteriores das
+36 tabelas de cada banco foram conferidos durante a instalação. Nenhum cadastro
+ou venda foi apagado. Para carregar as novas telas, use Reconectar no PC e
+reabra o APK, sem reinstalação.
+
+## PC administrador e nome do atendente — V20 (21/10/2026)
+
+A aba Funcionários foi retirada. O PC usa Mesas, Caixa, Estoque, Cardápio e
+Configurações. O APK pede somente o nome na primeira abertura, lembra neste
+aparelho e permite trocar em Menu → Configurações. A troca não altera outros
+celulares nem renomeia responsáveis por pedidos anteriores. Envios pendentes
+devem ser conferidos antes da troca. O consumo consultado no Caixa mostra o
+atendente de cada produto. Sem e-mail, senha ou cadastro prévio.
+
+V20 separa os identificadores internos por nome da identidade genérica de
+compatibilidade. Cookies exclusivos de atendimento, separados por ambiente,
+não concedem gestão; o administrador local continua definido pelo PC. Rotas,
+cadastros e referências históricos permanecem no banco.
+
+Validação: **97 testes Java/API** e **60 casos de interface** aprovados.
+Migração V19 → V20 conferida em cópia preenchida, preservando os registros de
+36 tabelas. Operação e treinamento atualizados por HTTPS, com os registros
+das 36 tabelas de cada banco conferidos durante a instalação. O treinamento
+continua sem mesas, produtos, vendas ou caixas. Não exige reinstalar o APK.
+
+Arquivos organizados: comandos de manutenção em `ferramentas/`, guias reunidos
+no índice `docs/README.md` e registro datado em `docs/historico/`.
+Inicializadores e atalhos de abertura permanecem na pasta principal.
+Nove comandos movidos com os caminhos ajustados; diagnóstico de rede executado
+a partir de outra pasta, sem alterar a rede. Links relativos dos guias conferidos.
+
+## Treinamento reiniciado vazio (21/10/2026)
+
+Limpeza solicitada pelo proprietário: treinamento recriado sem mesas, locais,
+categorias, produtos, funcionários adicionais, atendimentos, vendas, estoque
+ou caixas anteriores. Mantidos apenas o responsável inicial, permissões e
+configurações necessárias ao funcionamento. Sem caixa aberto; abertura padrão
+continua em R$ 0,00. Os exemplos iniciais também foram retirados e não voltam
+ao reabrir o programa. As 36 tabelas do banco de operação foram conferidas e
+preservadas; a limpeza afetou somente o treinamento.
+
+## Seleção do caixa sem aberturas antigas (21/10/2026)
+
+**Caixa em uso** mostra somente caixas abertos, incluindo os que exigem
+fechamento antes de uma nova abertura. Caixas já encerrados não aparecem na
+seleção nem são selecionados automaticamente. Sem abertura atual, a tela
+informa **Nenhum caixa aberto** e oferece **Abrir caixa**. O resultado de um
+fechamento recém-realizado permanece disponível para conferência até sair
+da seção; o histórico financeiro continua no banco.
+
+Compilação da interface e **64 casos de interface aprovados**, incluindo
+aberturas antigas preservadas, abertura nova, fechamento com totais calculados,
+reentrada na tela e caixa anterior pendente, no computador e em tela de celular.
+Sem alterações no banco ou no APK; mantém PC 0.2.4 e Android 0.2.3.
+
+Operação e treinamento atualizados por HTTPS e conferidos com a mesma interface
+compilada. Treinamentos do PC e Android abertos. Após a mudança do IP residencial
+para 192.168.0.3, a conexão do Android de teste foi ajustada nas configurações;
+o perfil Público do Windows foi preservado. Azure/4G, sincronização local/nuvem
+e a validação da impressora física continuam como etapas futuras.
+
 ## Fechamento com totais do sistema e impressão livre (21/10/2026)
 
 Decisão mais recente: retirar a contagem manual do fechamento normal e a etapa
@@ -522,8 +599,8 @@ o guia, os cenários críticos estiverem validados e houver recuperação docume
 - [x] Solicitação pela tela **Preparação** e exclusão mútua com o backup manual.
 - [x] Conferir cada cópia por checksum e restauração em banco temporário,
       comparando as contagens de todas as tabelas com o snapshot original.
-- [x] Seleção de segunda pasta por **Configurar Backups.cmd**, conferência
-      de arquivo por **Conferir Backup.cmd** e pausa explícita dos automáticos.
+- [x] Seleção de segunda pasta por **ferramentas/Configurar Backups.cmd**, conferência
+      de arquivo por **ferramentas/Conferir Backup.cmd** e pausa explícita dos automáticos.
 - [x] Documentar recuperação sem substituir automaticamente o banco real em
       [BACKUP-E-RECUPERACAO.md](BACKUP-E-RECUPERACAO.md).
 - [ ] Escolher um destino em outro disco, testar a segunda cópia e definir
@@ -634,7 +711,7 @@ os dados, a assinatura dos APKs e os certificados locais nas próximas alteraç�
 
 Para os exercícios com a versão atual:
 
-Abrir **Iniciar Treinamento.cmd**, consultar **Acesso do Treinamento.cmd** e
+Abrir **Iniciar Treinamento.cmd**, consultar **ferramentas/Acesso do Treinamento.cmd** e
 seguir [PILOTO.md](PILOTO.md). Cadastrar mesas e cardápio reais manualmente
 no ambiente de operação depois de praticar. Configurar os Android físicos e
 confirmar rede, certificado e firewall. As partes implementadas das fases 2

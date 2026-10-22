@@ -22,7 +22,7 @@ class BarController {
         if(a.attendanceOnly())return attendanceState(a);
         UUID u=a.unit();var out=new LinkedHashMap<String,Object>();
         out.put("areas",db.queryForList("SELECT * FROM bar.areas WHERE establishment_id=? ORDER BY name",u));
-        out.put("tables",db.queryForList("SELECT * FROM bar.bar_tables WHERE establishment_id=? ORDER BY length(number),number",u));
+        out.put("tables",db.queryForList("SELECT t.*,t.created_by_name_snapshot created_by_name FROM bar.bar_tables t WHERE establishment_id=? ORDER BY length(number),number",u));
         out.put("categories",db.queryForList("SELECT * FROM bar.categories WHERE establishment_id=? ORDER BY sort_order,name",u));
         out.put("products",db.queryForList("SELECT p.*, (p.active AND p.available AND c.active AND (NOT p.stock_controlled OR p.stock_quantity>0)) sellable FROM bar.products p JOIN bar.categories c ON (c.establishment_id,c.id)=(p.establishment_id,p.category_id) WHERE p.establishment_id=? AND p.deleted_at IS NULL ORDER BY p.name",u));
         out.put("groups",db.queryForList("SELECT * FROM bar.modifier_groups WHERE establishment_id=? ORDER BY name",u));
@@ -31,13 +31,14 @@ class BarController {
         boolean global=any(a,"table.manage","payment.receive","account.close"),production=any(a,"production.update");
         String access=global?"true":"EXISTS(SELECT 1 FROM bar.table_authorizations ta WHERE ta.establishment_id=a.establishment_id AND ta.table_id=a.table_id AND ta.user_id=? AND ta.revoked_at IS NULL)";
         Object[] args=global?new Object[]{u}:new Object[]{u,a.id()};
-        out.put("accounts",db.queryForList("SELECT a.*,t.subtotal,t.adjustments_total,t.total,t.paid_amount,t.balance FROM bar.accounts a JOIN bar.account_totals t ON (t.establishment_id,t.account_id)=(a.establishment_id,a.id) WHERE a.establishment_id=? AND "+access+" ORDER BY a.opened_at DESC LIMIT 500",args));
+        out.put("accounts",db.queryForList("SELECT a.*,t.subtotal,t.adjustments_total,t.total,t.paid_amount,t.balance,opener.name opened_by_name FROM bar.accounts a JOIN bar.account_totals t ON (t.establishment_id,t.account_id)=(a.establishment_id,a.id) JOIN bar.users opener ON (opener.establishment_id,opener.id)=(a.establishment_id,a.opened_by) WHERE a.establishment_id=? AND "+access+" ORDER BY a.opened_at DESC LIMIT 500",args));
         String itemAccess=production?"true":access;
         Object[] itemArgs=production||global?new Object[]{u}:new Object[]{u,a.id()};
         out.put("items",db.queryForList("""
             SELECT i.id,i.order_id,i.product_id,i.description_snapshot,i.quantity,i.destination,i.status,i.notes,
-                   o.account_id,o.number,o.sent_at,COALESCE(t.number,a.table_number_snapshot) table_number
+                   o.account_id,o.number,o.sent_at,waiter.name attendant_name,COALESCE(t.number,a.table_number_snapshot) table_number
             FROM bar.order_items i JOIN bar.orders o ON (o.establishment_id,o.id)=(i.establishment_id,i.order_id)
+            JOIN bar.users waiter ON (waiter.establishment_id,waiter.id)=(o.establishment_id,o.waiter_id)
             JOIN bar.accounts a ON (a.establishment_id,a.id)=(o.establishment_id,o.account_id)
             LEFT JOIN bar.bar_tables t ON (t.establishment_id,t.id)=(a.establishment_id,a.table_id)
             WHERE i.establishment_id=? AND
@@ -78,10 +79,10 @@ class BarController {
     @GetMapping("/accounts/{id}") Map<String,Object> account(@AuthenticationPrincipal Actor a,@PathVariable UUID id) {
         if(a.attendanceOnly())return attendanceAccount(a,id);
         UUID u=a.unit();
-        var account=ops.one("SELECT a.*,t.* FROM bar.accounts a JOIN bar.account_totals t ON (t.establishment_id,t.account_id)=(a.establishment_id,a.id) WHERE a.establishment_id=? AND a.id=?",u,id);
+        var account=ops.one("SELECT a.*,t.*,opener.name opened_by_name FROM bar.accounts a JOIN bar.account_totals t ON (t.establishment_id,t.account_id)=(a.establishment_id,a.id) JOIN bar.users opener ON (opener.establishment_id,opener.id)=(a.establishment_id,a.opened_by) WHERE a.establishment_id=? AND a.id=?",u,id);
         if(!any(a,"table.manage","payment.receive","account.close") && db.queryForObject("SELECT count(*) FROM bar.table_authorizations WHERE establishment_id=? AND table_id=? AND user_id=? AND revoked_at IS NULL",Integer.class,u,account.get("table_id"),a.id())==0) throw new ApiError(403,"Mesa não autorizada.");
         var out=new LinkedHashMap<String,Object>();out.put("account",account);
-        out.put("items",db.queryForList("SELECT i.*,o.number,t.line_total FROM bar.order_items i JOIN bar.orders o ON (o.establishment_id,o.id)=(i.establishment_id,i.order_id) JOIN bar.order_item_totals t ON (t.establishment_id,t.order_item_id)=(i.establishment_id,i.id) WHERE o.establishment_id=? AND o.account_id=? ORDER BY o.sent_at,i.description_snapshot",u,id));
+        out.put("items",db.queryForList("SELECT i.*,o.number,t.line_total,u.name attendant_name FROM bar.order_items i JOIN bar.orders o ON (o.establishment_id,o.id)=(i.establishment_id,i.order_id) JOIN bar.users u ON (u.establishment_id,u.id)=(o.establishment_id,o.waiter_id) JOIN bar.order_item_totals t ON (t.establishment_id,t.order_item_id)=(i.establishment_id,i.id) WHERE o.establishment_id=? AND o.account_id=? ORDER BY o.sent_at,i.description_snapshot",u,id));
         out.put("modifiers",db.queryForList("SELECT m.* FROM bar.order_item_modifiers m JOIN bar.order_items i ON (i.establishment_id,i.id)=(m.establishment_id,m.order_item_id) JOIN bar.orders o ON (o.establishment_id,o.id)=(i.establishment_id,i.order_id) WHERE o.establishment_id=? AND o.account_id=?",u,id));
         out.put("adjustments",db.queryForList("SELECT * FROM bar.account_adjustments WHERE establishment_id=? AND account_id=? ORDER BY created_at",u,id));
         out.put("payments",db.queryForList("SELECT * FROM bar.payments WHERE establishment_id=? AND account_id=? ORDER BY received_at",u,id));
@@ -90,7 +91,7 @@ class BarController {
     private Map<String,Object> attendanceState(Actor a) {
         UUID u=a.unit();var out=new LinkedHashMap<String,Object>();
         out.put("areas",db.queryForList("SELECT id,name,active FROM bar.areas WHERE establishment_id=? ORDER BY name",u));
-        var tables=db.queryForList("SELECT id,area_id,number,status,active FROM bar.bar_tables WHERE establishment_id=? AND active ORDER BY length(number),number",u);
+        var tables=db.queryForList("SELECT id,area_id,number,status,active,created_by_name_snapshot created_by_name FROM bar.bar_tables WHERE establishment_id=? AND active ORDER BY length(number),number",u);
         out.put("tables",tables);
         out.put("authorizations",tables.stream().map(table->Map.of("user_id",a.id(),"table_id",table.get("id"))).toList());
         out.put("categories",db.queryForList("SELECT id,name,active FROM bar.categories WHERE establishment_id=? ORDER BY sort_order,name",u));
@@ -104,7 +105,8 @@ class BarController {
         out.put("modifiers",db.queryForList("SELECT id,group_id,name,price,active FROM bar.modifiers WHERE establishment_id=? ORDER BY name",u));
         out.put("productGroups",db.queryForList("SELECT product_id,group_id FROM bar.product_modifier_groups WHERE establishment_id=?",u));
         out.put("accounts",db.queryForList("""
-            SELECT a.id,a.table_id,a.status,a.opened_at,t.total FROM bar.accounts a
+            SELECT a.id,a.table_id,a.status,a.opened_at,t.total,opener.name opened_by_name FROM bar.accounts a
+            JOIN bar.users opener ON (opener.establishment_id,opener.id)=(a.establishment_id,a.opened_by)
             JOIN bar.account_totals t ON (t.establishment_id,t.account_id)=(a.establishment_id,a.id)
             JOIN bar.bar_tables bt ON (bt.establishment_id,bt.id)=(a.establishment_id,a.table_id)
             WHERE a.establishment_id=? AND bt.active AND a.status IN ('ABERTA','EM_FECHAMENTO') ORDER BY a.opened_at DESC
@@ -114,7 +116,8 @@ class BarController {
     private Map<String,Object> attendanceAccount(Actor a,UUID id) {
         UUID u=a.unit();
         var rows=db.queryForList("""
-            SELECT a.id,a.table_id,a.status,a.opened_at,t.total FROM bar.accounts a
+            SELECT a.id,a.table_id,a.status,a.opened_at,t.total,opener.name opened_by_name FROM bar.accounts a
+            JOIN bar.users opener ON (opener.establishment_id,opener.id)=(a.establishment_id,a.opened_by)
             JOIN bar.account_totals t ON (t.establishment_id,t.account_id)=(a.establishment_id,a.id)
             JOIN bar.bar_tables bt ON (bt.establishment_id,bt.id)=(a.establishment_id,a.table_id)
             WHERE a.establishment_id=? AND a.id=? AND bt.active AND a.status IN ('ABERTA','EM_FECHAMENTO')
@@ -122,8 +125,9 @@ class BarController {
         if(rows.isEmpty())throw new ApiError(403,"Este atendimento não está disponível no celular.");
         var out=new LinkedHashMap<String,Object>();out.put("account",rows.getFirst());
         out.put("items",db.queryForList("""
-            SELECT i.id,i.order_id,i.product_id,i.description_snapshot,i.quantity,i.notes,i.status,o.number,t.line_total
+            SELECT i.id,i.order_id,i.product_id,i.description_snapshot,i.quantity,i.notes,i.status,o.number,t.line_total,waiter.name attendant_name
             FROM bar.order_items i JOIN bar.orders o ON (o.establishment_id,o.id)=(i.establishment_id,i.order_id)
+            JOIN bar.users waiter ON (waiter.establishment_id,waiter.id)=(o.establishment_id,o.waiter_id)
             JOIN bar.order_item_totals t ON (t.establishment_id,t.order_item_id)=(i.establishment_id,i.id)
             WHERE o.establishment_id=? AND o.account_id=? ORDER BY o.sent_at,i.description_snapshot
             """,u,id));

@@ -93,7 +93,7 @@ docker build -t bar-do-zico:revisao-20261020 .
 ```
 
 To inspect the real subscription without creating resources, open
-**Verificar Azure.cmd**. The tool uses the official ZIP Azure CLI in `.tools`,
+**ferramentas/Verificar Azure.cmd**. The tool uses the official ZIP Azure CLI in `.tools`,
 requests Microsoft sign-in if necessary, and saves the inventory locally in
 `.tools/azure-inventory.json`. It never prints access tokens, changes the selected
 subscription, creates resources or publishes the image.

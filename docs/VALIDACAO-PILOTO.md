@@ -131,7 +131,7 @@ O certificado público também está disponível em `output/android/bar-ca.cer`
 para transferência ao celular; os arquivos privados permanecem em `.tools/tls/`.
 
 Backups horários locais estão ativos. A segunda pasta ainda não foi escolhida;
-isso pode ser feito por **Configurar Backups.cmd**. Consulte
+isso pode ser feito por **ferramentas/Configurar Backups.cmd**. Consulte
 [BACKUP-E-RECUPERACAO.md](BACKUP-E-RECUPERACAO.md).
 
 Continuam pendentes o firewall e o certificado no Android físico, o teste pelo Wi-Fi do bar,
